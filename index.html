@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Zorgplanner</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Familieplanning</p>
+        <h1>Zorgplanner</h1>
+      </div>
+    </header>
+
+    <section class="access-shell" id="accessShell" aria-labelledby="accessTitle">
+      <form class="access-panel" id="accessForm">
+        <p class="eyebrow">Besloten planning</p>
+        <h2 id="accessTitle">Voer het gedeelde wachtwoord in</h2>
+        <p class="access-copy">
+          Deze familielink is afgeschermd. Gebruik het wachtwoord dat bij deze planning hoort.
+        </p>
+        <label>
+          Wachtwoord
+          <input id="passwordInput" name="password" type="password" autocomplete="current-password" required />
+        </label>
+        <p class="access-message" id="accessMessage" role="status" aria-live="polite"></p>
+        <button class="primary-button" id="accessSubmit" type="submit">Planner openen</button>
+      </form>
+    </section>
+
+    <main class="app-shell" id="appShell" hidden>
+      <section class="toolbar" aria-label="Overzicht">
+        <div>
+          <p class="label">Volgende afspraak</p>
+          <p class="summary" id="nextAppointment">Nog geen afspraken</p>
+        </div>
+        <div class="toolbar-actions">
+          <button class="secondary-button speak-button" id="speakButton" type="button">Lees voor</button>
+        </div>
+      </section>
+
+      <section class="layout">
+        <section class="appointments-panel" aria-label="Afspraken">
+          <div class="panel-heading">
+            <h2>Afspraken</h2>
+            <div class="segmented-control" role="group" aria-label="Filter afspraken">
+              <button class="segment active" data-filter="upcoming" type="button">Komend</button>
+              <button class="segment" data-filter="all" type="button">Alle</button>
+            </div>
+          </div>
+          <div class="appointment-list" id="appointmentList"></div>
+        </section>
+
+        <form class="appointment-form manage-panel" id="appointmentForm">
+          <input id="appointmentId" type="hidden" />
+          <div class="form-heading">
+            <h2 id="formTitle">Afspraak toevoegen</h2>
+            <button class="link-button" id="resetButton" type="button">Nieuw formulier</button>
+          </div>
+
+          <label>
+            Titel
+            <input id="titleInput" name="title" type="text" placeholder="Bijv. controle" required />
+          </label>
+
+          <div class="field-grid">
+            <label>
+              Datum
+              <input id="dateInput" name="date" type="date" required />
+            </label>
+            <label>
+              Tijd
+              <input id="timeInput" name="time" type="time" required />
+            </label>
+          </div>
+
+          <label>
+            Ziekenhuis
+            <input id="hospitalInput" name="hospital" type="text" placeholder="Naam ziekenhuis" required />
+          </label>
+
+          <label>
+            Locatie of afdeling
+            <input id="locationInput" name="location" type="text" placeholder="Bijv. poli, route of gebouw" />
+          </label>
+
+          <label>
+            Arts of contactpersoon
+            <input id="doctorInput" name="doctor" type="text" placeholder="Naam arts" />
+          </label>
+
+          <label>
+            Herinnering
+            <select id="reminderInput" name="reminder">
+              <option value="none">Geen herinnering</option>
+              <option value="evening-before">Avond van tevoren</option>
+              <option value="morning-of">Ochtend zelf</option>
+              <option value="both">Avond van tevoren en ochtend zelf</option>
+            </select>
+          </label>
+
+          <fieldset class="attendance-fieldset">
+            <legend>Wie gaat mee?</legend>
+            <div class="attendance-editor" id="attendanceEditor"></div>
+          </fieldset>
+
+          <label>
+            Praktische notities
+            <textarea id="notesInput" name="notes" rows="4" placeholder="Bijv. vervoer, parkeren of verzamelen"></textarea>
+          </label>
+
+          <button class="primary-button" type="submit">Afspraak opslaan</button>
+        </form>
+
+        <section class="people-panel manage-panel" aria-label="Familieleden">
+          <div class="panel-heading">
+            <h2>Mensen</h2>
+          </div>
+          <form class="person-form" id="personForm">
+            <label>
+              Naam toevoegen
+              <input id="personNameInput" name="personName" type="text" placeholder="Naam familielid" />
+            </label>
+            <button class="secondary-button" type="submit">Toevoegen</button>
+          </form>
+          <div class="people-list" id="peopleList"></div>
+        </section>
+      </section>
+
+      <footer class="settings-footer" aria-label="Instellingen">
+        <button class="theme-toggle" id="contrastToggle" type="button" aria-pressed="false">
+          Extra groot
+        </button>
+      </footer>
+    </main>
+
+    <template id="appointmentTemplate">
+      <article class="appointment-card">
+        <div class="card-main">
+          <p class="date-line"></p>
+          <h3></h3>
+          <dl></dl>
+          <div class="attendance-summary"></div>
+          <p class="notes"></p>
+        </div>
+        <div class="card-actions">
+          <button class="icon-button edit-button" type="button" title="Bewerken" aria-label="Bewerken">Bewerken</button>
+          <button class="icon-button delete-button" type="button" title="Verwijderen" aria-label="Verwijderen">Verwijderen</button>
+        </div>
+      </article>
+    </template>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
