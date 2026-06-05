@@ -1,5 +1,9 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword } from "firebase/auth";
+import {
+  getAuth,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+} from "firebase/auth";
 import {
   collection,
   deleteDoc,
@@ -23,16 +27,9 @@ const peopleRef = collection(db, "families", familyId, "people");
 const appointmentsRef = collection(db, "families", familyId, "appointments");
 
 const attendanceStatuses = {
-  unknown: "Nog niet ingevuld",
-  joining: "Gaat mee",
-  declined: "Gaat niet mee",
-};
-
-const reminderLabels = {
-  none: "Geen herinnering",
-  "evening-before": "Avond van tevoren",
-  "morning-of": "Ochtend zelf",
-  both: "Avond van tevoren en ochtend zelf",
+  unknown: "Invullen",
+  joining: "Aanwezig",
+  declined: "Afwezig",
 };
 
 const form = document.querySelector("#appointmentForm");
@@ -45,7 +42,6 @@ const timeInput = document.querySelector("#timeInput");
 const hospitalInput = document.querySelector("#hospitalInput");
 const locationInput = document.querySelector("#locationInput");
 const doctorInput = document.querySelector("#doctorInput");
-const reminderInput = document.querySelector("#reminderInput");
 const attendanceEditor = document.querySelector("#attendanceEditor");
 const notesInput = document.querySelector("#notesInput");
 const appointmentList = document.querySelector("#appointmentList");
@@ -111,12 +107,13 @@ form.addEventListener("submit", async (event) => {
     hospital: hospitalInput.value.trim(),
     location: locationInput.value.trim(),
     doctor: doctorInput.value.trim(),
-    reminder: reminderInput.value,
     attendance: collectAttendance(),
     notes: notesInput.value.trim(),
   };
 
-  const existingIndex = plannerState.appointments.findIndex((item) => item.id === appointment.id);
+  const existingIndex = plannerState.appointments.findIndex(
+    (item) => item.id === appointment.id,
+  );
   if (existingIndex >= 0) {
     plannerState.appointments[existingIndex] = appointment;
   } else {
@@ -150,7 +147,9 @@ speakButton.addEventListener("click", () => {
 filterButtons.forEach((button) => {
   button.addEventListener("click", () => {
     activeFilter = button.dataset.filter;
-    filterButtons.forEach((item) => item.classList.toggle("active", item === button));
+    filterButtons.forEach((item) =>
+      item.classList.toggle("active", item === button),
+    );
     renderAppointments();
   });
 });
@@ -168,7 +167,8 @@ function renderPeople() {
   if (plannerState.people.length === 0) {
     const emptyState = document.createElement("p");
     emptyState.className = "empty-state small";
-    emptyState.textContent = "Voeg eerst de familieleden toe die kunnen reageren.";
+    emptyState.textContent =
+      "Voeg eerst de familieleden toe die kunnen reageren.";
     peopleList.append(emptyState);
     return;
   }
@@ -237,9 +237,10 @@ function renderAttendanceEditor(appointment = getActiveAppointment()) {
 }
 
 function renderAppointments() {
-  const sortedAppointments = [...plannerState.appointments].sort(compareAppointments);
-  const visibleAppointments =
-    activeFilter === "upcoming" ? sortedAppointments.filter(isUpcoming) : sortedAppointments;
+  const sortedAppointments = [...plannerState.appointments].sort(
+    compareAppointments,
+  );
+  const visibleAppointments = getVisibleAppointments(sortedAppointments);
 
   renderNextAppointment(sortedAppointments);
   appointmentList.replaceChildren();
@@ -247,10 +248,7 @@ function renderAppointments() {
   if (visibleAppointments.length === 0) {
     const emptyState = document.createElement("p");
     emptyState.className = "empty-state";
-    emptyState.textContent =
-      activeFilter === "upcoming"
-        ? "Er staan nog geen komende afspraken in de planner."
-        : "Er zijn nog geen afspraken opgeslagen.";
+    emptyState.textContent = emptyStateMessage();
     appointmentList.append(emptyState);
     return;
   }
@@ -259,32 +257,70 @@ function renderAppointments() {
     const card = appointmentTemplate.content.firstElementChild.cloneNode(true);
     card.querySelector(".date-line").textContent = formatDateTime(appointment);
     card.querySelector("h3").textContent = appointment.title;
-    card.querySelector("dl").append(
-      createDetail("Ziekenhuis", appointment.hospital),
-      createDetail("Locatie", appointment.location || "Niet ingevuld"),
-      createDetail("Behandelaar", appointment.doctor || "Niet ingevuld"),
-      createDetail("Herinnering", reminderLabels[appointment.reminder] || reminderLabels.none),
-    );
+    card
+      .querySelector("dl")
+      .append(
+        createDetail("Ziekenhuis", appointment.hospital),
+        createDetail("Locatie", appointment.location || "Niet ingevuld"),
+        createDetail("Behandelaar", appointment.doctor || "Niet ingevuld"),
+      );
 
-    renderAttendanceSummary(card.querySelector(".attendance-summary"), appointment);
-    renderQuickAttendanceControls(card.querySelector(".card-main"), appointment);
+    renderAttendanceSummary(
+      card.querySelector(".attendance-summary"),
+      appointment,
+    );
+    renderQuickAttendanceControls(
+      card.querySelector(".card-main"),
+      appointment,
+    );
 
     const notes = card.querySelector(".notes");
     notes.textContent = appointment.notes;
     notes.hidden = !appointment.notes;
 
     const readButton = document.createElement("button");
-    readButton.className = "secondary-button speak-button appointment-speak-button";
+    readButton.className =
+      "secondary-button speak-button appointment-speak-button";
     readButton.type = "button";
     readButton.textContent = "Lees deze afspraak voor";
     readButton.addEventListener("click", () => speakAppointment(appointment));
     card.querySelector(".card-main").append(readButton);
 
-    card.querySelector(".edit-button").addEventListener("click", () => editAppointment(appointment.id));
-    card.querySelector(".delete-button").addEventListener("click", () => deleteAppointment(appointment.id));
+    card
+      .querySelector(".edit-button")
+      .addEventListener("click", () => editAppointment(appointment.id));
+    card
+      .querySelector(".delete-button")
+      .addEventListener("click", () => deleteAppointment(appointment.id));
 
     appointmentList.append(card);
   });
+}
+
+function getVisibleAppointments(sortedAppointments) {
+  if (activeFilter === "upcoming") {
+    return sortedAppointments.filter(isUpcoming);
+  }
+
+  if (activeFilter === "history") {
+    return sortedAppointments
+      .filter((appointment) => !isUpcoming(appointment))
+      .reverse();
+  }
+
+  return sortedAppointments;
+}
+
+function emptyStateMessage() {
+  if (activeFilter === "upcoming") {
+    return "Er staan nog geen komende afspraken in de planner.";
+  }
+
+  if (activeFilter === "history") {
+    return "Er zijn nog geen afspraken geweest.";
+  }
+
+  return "Er zijn nog geen afspraken opgeslagen.";
 }
 
 function renderAttendanceSummary(container, appointment) {
@@ -305,7 +341,9 @@ function renderAttendanceSummary(container, appointment) {
 
   const list = document.createElement("div");
   list.className = "attendance-pills";
-  const joiningPeople = plannerState.people.filter((person) => appointment.attendance[person.id] === "joining");
+  const joiningPeople = plannerState.people.filter(
+    (person) => appointment.attendance[person.id] === "joining",
+  );
 
   if (joiningPeople.length === 0) {
     const pill = document.createElement("span");
@@ -347,8 +385,18 @@ function renderQuickAttendanceControls(container, appointment) {
     const actions = document.createElement("div");
     actions.className = "quick-attendance-actions";
 
-    const joiningButton = createAttendanceButton(appointment, person, "joining", "Gaat mee");
-    const declinedButton = createAttendanceButton(appointment, person, "declined", "Gaat niet mee");
+    const joiningButton = createAttendanceButton(
+      appointment,
+      person,
+      "joining",
+      "Gaat mee",
+    );
+    const declinedButton = createAttendanceButton(
+      appointment,
+      person,
+      "declined",
+      "Gaat niet mee",
+    );
 
     actions.append(joiningButton, declinedButton);
     row.append(name, actions);
@@ -365,7 +413,9 @@ function createAttendanceButton(appointment, person, status, label) {
   button.type = "button";
   button.textContent = label;
   button.setAttribute("aria-pressed", String(currentStatus === status));
-  button.addEventListener("click", () => updateAttendanceStatus(appointment.id, person.id, status));
+  button.addEventListener("click", () =>
+    updateAttendanceStatus(appointment.id, person.id, status),
+  );
   return button;
 }
 
@@ -379,7 +429,9 @@ async function updateAttendanceStatus(appointmentId, personId, status) {
   });
 
   renderAppointments();
-  const appointment = plannerState.appointments.find((item) => item.id === appointmentId);
+  const appointment = plannerState.appointments.find(
+    (item) => item.id === appointmentId,
+  );
   if (appointment) await saveAppointment(appointment);
 }
 
@@ -395,10 +447,15 @@ function createDetail(label, value) {
 
 function collectAttendance() {
   const attendance = {};
-  attendanceEditor.querySelectorAll(".attendance-choice-group[data-person-id]").forEach((group) => {
-    const activeButton = group.querySelector('.attendance-choice[aria-pressed="true"]');
-    attendance[group.dataset.personId] = activeButton?.dataset.status || "unknown";
-  });
+  attendanceEditor
+    .querySelectorAll(".attendance-choice-group[data-person-id]")
+    .forEach((group) => {
+      const activeButton = group.querySelector(
+        '.attendance-choice[aria-pressed="true"]',
+      );
+      attendance[group.dataset.personId] =
+        activeButton?.dataset.status || "unknown";
+    });
   return attendance;
 }
 
@@ -413,7 +470,6 @@ function editAppointment(id) {
   hospitalInput.value = appointment.hospital;
   locationInput.value = appointment.location;
   doctorInput.value = appointment.doctor;
-  reminderInput.value = appointment.reminder;
   notesInput.value = appointment.notes;
   formTitle.textContent = "Afspraak bewerken";
   renderAttendanceEditor(appointment);
@@ -427,7 +483,9 @@ async function deleteAppointment(id) {
   const confirmed = confirm(`Afspraak verwijderen: ${appointment.title}?`);
   if (!confirmed) return;
 
-  plannerState.appointments = plannerState.appointments.filter((item) => item.id !== id);
+  plannerState.appointments = plannerState.appointments.filter(
+    (item) => item.id !== id,
+  );
   resetForm();
   render();
   await deleteDoc(doc(appointmentsRef, id));
@@ -455,14 +513,15 @@ async function deletePerson(id) {
 
 function resetForm() {
   form.reset();
-  reminderInput.value = "none";
   appointmentIdInput.value = "";
   formTitle.textContent = "Afspraak toevoegen";
   renderAttendanceEditor();
 }
 
 function getActiveAppointment() {
-  return plannerState.appointments.find((item) => item.id === appointmentIdInput.value);
+  return plannerState.appointments.find(
+    (item) => item.id === appointmentIdInput.value,
+  );
 }
 
 function renderNextAppointment(sortedAppointments) {
@@ -473,14 +532,19 @@ function renderNextAppointment(sortedAppointments) {
 }
 
 function createSpokenSummary() {
-  const sortedAppointments = [...plannerState.appointments].sort(compareAppointments);
+  const sortedAppointments = [...plannerState.appointments].sort(
+    compareAppointments,
+  );
   const upcomingAppointment = sortedAppointments.find(isUpcoming);
 
   if (!upcomingAppointment) {
     return "Er staan geen komende afspraken in de planner.";
   }
 
-  return createAppointmentSpeechText(upcomingAppointment, "De volgende afspraak is");
+  return createAppointmentSpeechText(
+    upcomingAppointment,
+    "De volgende afspraak is",
+  );
 }
 
 function speakAppointment(appointment) {
@@ -488,7 +552,10 @@ function speakAppointment(appointment) {
 }
 
 function speakText(text) {
-  if (!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) {
+  if (
+    !("speechSynthesis" in window) ||
+    !("SpeechSynthesisUtterance" in window)
+  ) {
     alert("Voorlezen wordt niet ondersteund door deze browser.");
     return;
   }
@@ -522,11 +589,15 @@ function createAppointmentSpeechText(appointment, opening) {
     .map((part) => part.trim())
     .filter(Boolean);
   const locationText =
-    locationParts.length > 0 ? `De locatie is ${locationParts.join(", ")}.` : "De locatie is nog niet ingevuld.";
+    locationParts.length > 0
+      ? `De locatie is ${locationParts.join(", ")}.`
+      : "De locatie is nog niet ingevuld.";
   const doctorText = appointment.doctor
     ? `De behandelaar is ${appointment.doctor}.`
     : "De behandelaar is nog niet ingevuld.";
-  const notesText = appointment.notes ? `Praktische notities: ${appointment.notes}.` : "";
+  const notesText = appointment.notes
+    ? `Praktische notities: ${appointment.notes}.`
+    : "";
 
   return [
     `${opening} ${appointment.title}.`,
@@ -557,7 +628,10 @@ async function initializeAccess() {
     setAccessMessage("Verbinden...");
     const user = await getCurrentUser();
 
-    if (localStorage.getItem(accessKey) === "granted" && user?.email === getFamilyEmail(familyId)) {
+    if (
+      localStorage.getItem(accessKey) === "granted" &&
+      user?.email === getFamilyEmail(familyId)
+    ) {
       showPlanner();
       await connectToFirebase();
       return;
@@ -633,7 +707,10 @@ function createFirebaseAuthMessage(error) {
 }
 
 function createFunctionMessage(error) {
-  if (error?.code === "auth/wrong-password" || error?.code === "auth/invalid-credential") {
+  if (
+    error?.code === "auth/wrong-password" ||
+    error?.code === "auth/invalid-credential"
+  ) {
     return "Het wachtwoord klopt niet.";
   }
 
@@ -670,20 +747,35 @@ async function connectToFirebase() {
     unsubscribePeople?.();
     unsubscribeAppointments?.();
 
-    unsubscribePeople = onSnapshot(peopleRef, (snapshot) => {
-      plannerState.people = snapshot.docs
-        .map((personDoc) => normalizePerson({ id: personDoc.id, ...personDoc.data() }))
-        .filter((person) => person.name)
-        .sort((first, second) => first.name.localeCompare(second.name, "nl-NL"));
-      render();
-    }, handleAccessError);
+    unsubscribePeople = onSnapshot(
+      peopleRef,
+      (snapshot) => {
+        plannerState.people = snapshot.docs
+          .map((personDoc) =>
+            normalizePerson({ id: personDoc.id, ...personDoc.data() }),
+          )
+          .filter((person) => person.name)
+          .sort((first, second) =>
+            first.name.localeCompare(second.name, "nl-NL"),
+          );
+        render();
+      },
+      handleAccessError,
+    );
 
-    unsubscribeAppointments = onSnapshot(appointmentsRef, (snapshot) => {
-      plannerState.appointments = snapshot.docs.map((appointmentDoc) =>
-        normalizeAppointment({ id: appointmentDoc.id, ...appointmentDoc.data() }),
-      );
-      render();
-    }, handleAccessError);
+    unsubscribeAppointments = onSnapshot(
+      appointmentsRef,
+      (snapshot) => {
+        plannerState.appointments = snapshot.docs.map((appointmentDoc) =>
+          normalizeAppointment({
+            id: appointmentDoc.id,
+            ...appointmentDoc.data(),
+          }),
+        );
+        render();
+      },
+      handleAccessError,
+    );
   } catch (error) {
     console.error("Firebase verbinden is niet gelukt", error);
     handleAccessError(error);
@@ -699,7 +791,8 @@ function handleAccessError(error) {
   plannerState = createEmptyPlannerState();
   render();
 
-  const isPermissionError = error?.code === "permission-denied" || error?.code === "PERMISSION_DENIED";
+  const isPermissionError =
+    error?.code === "permission-denied" || error?.code === "PERMISSION_DENIED";
   const message = isPermissionError
     ? "Deze sessie heeft nog geen toegang. Voer het wachtwoord opnieuw in."
     : "Verbinden met de gedeelde planning is niet gelukt. Probeer later opnieuw.";
@@ -721,7 +814,6 @@ async function saveAppointment(appointment) {
     hospital: appointment.hospital,
     location: appointment.location,
     doctor: appointment.doctor,
-    reminder: appointment.reminder,
     attendance: appointment.attendance,
     notes: appointment.notes,
     updatedAt: serverTimestamp(),
@@ -737,8 +829,12 @@ function normalizePlannerState(state) {
   }
 
   return {
-    people: Array.isArray(state.people) ? state.people.map(normalizePerson) : [],
-    appointments: Array.isArray(state.appointments) ? state.appointments.map(normalizeAppointment) : [],
+    people: Array.isArray(state.people)
+      ? state.people.map(normalizePerson)
+      : [],
+    appointments: Array.isArray(state.appointments)
+      ? state.appointments.map(normalizeAppointment)
+      : [],
   };
 }
 
@@ -758,7 +854,6 @@ function normalizeAppointment(appointment) {
     hospital: String(appointment.hospital || ""),
     location: String(appointment.location || ""),
     doctor: String(appointment.doctor || ""),
-    reminder: String(appointment.reminder || "none"),
     attendance: normalizeAttendance(appointment),
     notes: String(appointment.notes || ""),
   };
@@ -775,7 +870,9 @@ function normalizeAttendance(appointment) {
   }
 
   if (Array.isArray(appointment.companions)) {
-    return Object.fromEntries(appointment.companions.map((name) => [String(name), "joining"]));
+    return Object.fromEntries(
+      appointment.companions.map((name) => [String(name), "joining"]),
+    );
   }
 
   return {};
@@ -790,7 +887,9 @@ function isUpcoming(appointment) {
 }
 
 function getAppointmentTime(appointment) {
-  return new Date(`${appointment.date}T${appointment.time || "00:00"}`).getTime();
+  return new Date(
+    `${appointment.date}T${appointment.time || "00:00"}`,
+  ).getTime();
 }
 
 function startOfToday() {

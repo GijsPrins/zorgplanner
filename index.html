@@ -47,6 +47,7 @@
             <h2>Afspraken</h2>
             <div class="segmented-control" role="group" aria-label="Filter afspraken">
               <button class="segment active" data-filter="upcoming" type="button">Komend</button>
+              <button class="segment" data-filter="history" type="button">Geschiedenis</button>
               <button class="segment" data-filter="all" type="button">Alle</button>
             </div>
           </div>
@@ -57,12 +58,19 @@
           <input id="appointmentId" type="hidden" />
           <div class="form-heading">
             <h2 id="formTitle">Afspraak toevoegen</h2>
-            <button class="link-button" id="resetButton" type="button">Nieuw formulier</button>
+            <button class="link-button" id="resetButton" type="button">Nieuwe afspraak</button>
           </div>
 
           <label>
-            Titel
-            <input id="titleInput" name="title" type="text" placeholder="Bijv. controle" required />
+            Type afspraak
+            <select id="titleInput" name="title" required>
+              <option value="" disabled selected>Kies een type</option>
+              <option value="Behandeling">Behandeling</option>
+              <option value="Controle">Controle</option>
+              <option value="Intake">Intake</option>
+              <option value="Onderzoek">Onderzoek</option>
+              <option value="Uitslag">Uitslag</option>
+            </select>
           </label>
 
           <div class="field-grid">
@@ -78,7 +86,13 @@
 
           <label>
             Ziekenhuis
-            <input id="hospitalInput" name="hospital" type="text" placeholder="Naam ziekenhuis" required />
+            <select id="hospitalInput" name="hospital" required>
+              <option value="" disabled selected>Kies een ziekenhuis</option>
+              <option value="Antoni van Leeuwenhoek">Antoni van Leeuwenhoek</option>
+              <option value="St. Antonius Leidsche Rijn">St. Antonius Leidsche Rijn</option>
+              <option value="St. Antonius Nieuwegein">St. Antonius Nieuwegein</option>
+              <option value="UMCU">UMCU</option>
+            </select>
           </label>
 
           <label>
@@ -89,16 +103,6 @@
           <label>
             Behandelaar
             <input id="doctorInput" name="doctor" type="text" placeholder="Naam behandelaar" />
-          </label>
-
-          <label>
-            Herinnering
-            <select id="reminderInput" name="reminder">
-              <option value="none">Geen herinnering</option>
-              <option value="evening-before">Avond van tevoren</option>
-              <option value="morning-of">Ochtend zelf</option>
-              <option value="both">Avond van tevoren en ochtend zelf</option>
-            </select>
           </label>
 
           <fieldset class="attendance-fieldset">
@@ -121,7 +125,7 @@
           <form class="person-form" id="personForm">
             <label>
               Naam toevoegen
-              <input id="personNameInput" name="personName" type="text" placeholder="Naam familielid" />
+              <input id="personNameInput" name="personName" type="text" placeholder="Naam genodigde" />
             </label>
             <button class="secondary-button" type="submit">Toevoegen</button>
           </form>
