@@ -389,13 +389,13 @@ function renderQuickAttendanceControls(container, appointment) {
       appointment,
       person,
       "joining",
-      "Gaat mee",
+      "Aanwezig",
     );
     const declinedButton = createAttendanceButton(
       appointment,
       person,
       "declined",
-      "Gaat niet mee",
+      "Afwezig",
     );
 
     actions.append(joiningButton, declinedButton);
