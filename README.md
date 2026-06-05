@@ -106,11 +106,32 @@ Rules deployen:
 npx firebase deploy --only firestore:rules
 ```
 
-Website bouwen en hosten via Firebase Hosting:
+## GitHub Pages deploy
 
-```bash
-npm run build
-npx firebase deploy --only hosting
+De site wordt via GitHub Actions naar GitHub Pages gedeployed.
+
+1. Push naar `master`.
+2. Ga in GitHub naar **Settings**.
+3. Ga naar **Pages**.
+4. Kies bij **Build and deployment** voor **GitHub Actions**.
+5. Wacht tot de workflow **Deploy GitHub Pages** klaar is.
+
+De URL wordt normaal:
+
+```text
+https://gijsprins.github.io/zorgplanner/
+```
+
+Een familieplanning open je dan met:
+
+```text
+https://gijsprins.github.io/zorgplanner/?family=familie-jansen
+```
+
+Voeg in Firebase Authentication bij **Settings** > **Authorized domains** dit domein toe:
+
+```text
+gijsprins.github.io
 ```
 
 ## Belangrijke vervolgstappen
@@ -118,7 +139,7 @@ npx firebase deploy --only hosting
 - Een echte family-id en gedeeld wachtwoord kiezen.
 - De verborgen familiegebruiker aanmaken in Firebase Authentication.
 - Firestore Rules deployen.
-- De website deployen naar Firebase Hosting of GitHub Pages.
+- De website deployen naar GitHub Pages.
 - Bepalen hoe herinneringen worden verstuurd: e-mail, pushmelding, WhatsApp of alleen in de app.
 - Kalenderexport of rolverdeling toevoegen.
 
