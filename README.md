@@ -6,7 +6,7 @@ Een kleine Nederlandstalige plannapplicatie voor ziekenhuisafspraken.
 
 - Afspraken toevoegen, bewerken en verwijderen.
 - Familieleden toevoegen aan de planner.
-- Datum, tijd, ziekenhuis, locatie, arts/contactpersoon, herinnering en praktische notities vastleggen.
+- Datum, tijd, ziekenhuis, locatie, behandelaar, herinnering en praktische notities vastleggen.
 - Per familielid aangeven: nog niet ingevuld, gaat mee of gaat niet mee.
 - Komende afspraken of alle afspraken bekijken.
 - Mobile-first interface: op telefoons staat het afsprakenoverzicht bovenaan.

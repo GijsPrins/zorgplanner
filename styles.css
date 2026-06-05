@@ -269,6 +269,37 @@ legend {
   color: var(--text);
 }
 
+.attendance-row > span {
+  font-weight: 800;
+}
+
+.attendance-choice-group {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+
+.attendance-choice {
+  min-height: calc(var(--control-min-size) - 6px);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-strong);
+  color: var(--text);
+  padding: 8px 9px;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.attendance-choice[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #ffffff;
+}
+
+body.readable .attendance-choice[aria-pressed="true"] {
+  color: #fff6a8;
+}
+
 .person-row {
   min-height: var(--control-min-size);
   border: 1px solid var(--line);
@@ -684,12 +715,12 @@ body:not(.readable) .person-row .delete-button {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  body:not(.readable) .person-row {
-    grid-template-columns: minmax(0, 1fr) auto;
+  .attendance-choice-group {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .attendance-row select {
-    width: 100%;
+  body:not(.readable) .person-row {
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .card-actions {
@@ -745,7 +776,10 @@ body:not(.readable) .person-row .delete-button {
     min-height: 0;
   }
 
-  .attendance-row,
+  .attendance-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .person-row {
     grid-template-columns: minmax(0, 1fr) minmax(170px, auto);
   }
@@ -754,7 +788,7 @@ body:not(.readable) .person-row .delete-button {
     grid-template-columns: minmax(0, 1fr) auto;
   }
 
-  .attendance-row select {
-    width: min(240px, 100%);
+  .attendance-choice-group {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }

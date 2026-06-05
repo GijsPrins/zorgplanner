@@ -205,23 +205,33 @@ function renderAttendanceEditor(appointment = getActiveAppointment()) {
   }
 
   plannerState.people.forEach((person) => {
-    const row = document.createElement("label");
+    const row = document.createElement("div");
     row.className = "attendance-row";
 
     const name = document.createElement("span");
     name.textContent = person.name;
 
-    const select = document.createElement("select");
-    select.dataset.personId = person.id;
-    Object.entries(attendanceStatuses).forEach(([value, label]) => {
-      const option = document.createElement("option");
-      option.value = value;
-      option.textContent = label;
-      select.append(option);
-    });
-    select.value = appointment?.attendance?.[person.id] || "unknown";
+    const options = document.createElement("div");
+    options.className = "attendance-choice-group";
+    options.dataset.personId = person.id;
+    const currentStatus = appointment?.attendance?.[person.id] || "unknown";
 
-    row.append(name, select);
+    Object.entries(attendanceStatuses).forEach(([value, label]) => {
+      const button = document.createElement("button");
+      button.className = `attendance-choice ${value}`;
+      button.type = "button";
+      button.dataset.status = value;
+      button.textContent = label;
+      button.setAttribute("aria-pressed", String(value === currentStatus));
+      button.addEventListener("click", () => {
+        options.querySelectorAll(".attendance-choice").forEach((item) => {
+          item.setAttribute("aria-pressed", String(item === button));
+        });
+      });
+      options.append(button);
+    });
+
+    row.append(name, options);
     attendanceEditor.append(row);
   });
 }
@@ -252,7 +262,7 @@ function renderAppointments() {
     card.querySelector("dl").append(
       createDetail("Ziekenhuis", appointment.hospital),
       createDetail("Locatie", appointment.location || "Niet ingevuld"),
-      createDetail("Arts", appointment.doctor || "Niet ingevuld"),
+      createDetail("Behandelaar", appointment.doctor || "Niet ingevuld"),
       createDetail("Herinnering", reminderLabels[appointment.reminder] || reminderLabels.none),
     );
 
@@ -385,8 +395,9 @@ function createDetail(label, value) {
 
 function collectAttendance() {
   const attendance = {};
-  attendanceEditor.querySelectorAll("select[data-person-id]").forEach((select) => {
-    attendance[select.dataset.personId] = select.value;
+  attendanceEditor.querySelectorAll(".attendance-choice-group[data-person-id]").forEach((group) => {
+    const activeButton = group.querySelector('.attendance-choice[aria-pressed="true"]');
+    attendance[group.dataset.personId] = activeButton?.dataset.status || "unknown";
   });
   return attendance;
 }
@@ -513,8 +524,8 @@ function createAppointmentSpeechText(appointment, opening) {
   const locationText =
     locationParts.length > 0 ? `De locatie is ${locationParts.join(", ")}.` : "De locatie is nog niet ingevuld.";
   const doctorText = appointment.doctor
-    ? `De contactpersoon is ${appointment.doctor}.`
-    : "De arts of contactpersoon is nog niet ingevuld.";
+    ? `De behandelaar is ${appointment.doctor}.`
+    : "De behandelaar is nog niet ingevuld.";
   const notesText = appointment.notes ? `Praktische notities: ${appointment.notes}.` : "";
 
   return [
