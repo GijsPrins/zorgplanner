@@ -87,7 +87,27 @@
               <button class="segment" data-filter="all" type="button">
                 Alle
               </button>
+              <button class="segment" data-filter="period" type="button">
+                Periode
+              </button>
             </div>
+          </div>
+          <div class="period-filter" id="periodFilter" hidden>
+            <label>
+              Van
+              <input id="periodStartInput" name="periodStart" type="date" />
+            </label>
+            <label>
+              Tot
+              <input id="periodEndInput" name="periodEnd" type="date" />
+            </label>
+            <button
+              class="link-button period-clear-button"
+              id="clearPeriodButton"
+              type="button"
+            >
+              Wis periode
+            </button>
           </div>
           <div class="appointment-list" id="appointmentList"></div>
         </section>
@@ -109,6 +129,7 @@
               <option value="Controle">Controle</option>
               <option value="Intake">Intake</option>
               <option value="Onderzoek">Onderzoek</option>
+              <option value="Telefonisch consult">Telefonisch consult</option>
               <option value="Uitslag">Uitslag</option>
             </select>
           </label>
@@ -120,9 +141,19 @@
             </label>
             <label>
               Tijd
-              <input id="timeInput" name="time" type="time" required />
+              <input id="timeInput" name="time" type="time" />
             </label>
           </div>
+
+          <label>
+            Waarom is deze afspraak?
+            <input
+              id="reasonInput"
+              name="reason"
+              type="text"
+              placeholder="Bijv. voorbereidende CT tbv radiotherapie"
+            />
+          </label>
 
           <label>
             Ziekenhuis
@@ -213,30 +244,42 @@
 
     <template id="appointmentTemplate">
       <article class="appointment-card">
-        <div class="card-main">
-          <p class="date-line"></p>
-          <h3></h3>
+        <div class="card-summary">
+          <div>
+            <p class="date-line"></p>
+            <h3></h3>
+            <p class="summary-line"></p>
+          </div>
+          <button
+            class="secondary-button details-toggle"
+            type="button"
+            aria-expanded="false"
+          >
+            Details tonen
+          </button>
+        </div>
+        <div class="card-details">
           <dl></dl>
           <div class="attendance-summary"></div>
           <p class="notes"></p>
-        </div>
-        <div class="card-actions">
-          <button
-            class="icon-button edit-button"
-            type="button"
-            title="Bewerken"
-            aria-label="Bewerken"
-          >
-            Bewerken
-          </button>
-          <button
-            class="icon-button delete-button"
-            type="button"
-            title="Verwijderen"
-            aria-label="Verwijderen"
-          >
-            Verwijderen
-          </button>
+          <div class="card-actions">
+            <button
+              class="icon-button edit-button"
+              type="button"
+              title="Bewerken"
+              aria-label="Bewerken"
+            >
+              Bewerken
+            </button>
+            <button
+              class="icon-button delete-button"
+              type="button"
+              title="Verwijderen"
+              aria-label="Verwijderen"
+            >
+              Verwijderen
+            </button>
+          </div>
         </div>
       </article>
     </template>

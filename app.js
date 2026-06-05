@@ -39,6 +39,7 @@ const appointmentIdInput = document.querySelector("#appointmentId");
 const titleInput = document.querySelector("#titleInput");
 const dateInput = document.querySelector("#dateInput");
 const timeInput = document.querySelector("#timeInput");
+const reasonInput = document.querySelector("#reasonInput");
 const hospitalInput = document.querySelector("#hospitalInput");
 const locationInput = document.querySelector("#locationInput");
 const doctorInput = document.querySelector("#doctorInput");
@@ -59,9 +60,18 @@ const resetButton = document.querySelector("#resetButton");
 const contrastToggle = document.querySelector("#contrastToggle");
 const speakButton = document.querySelector("#speakButton");
 const filterButtons = document.querySelectorAll("[data-filter]");
+const periodFilter = document.querySelector("#periodFilter");
+const periodStartInput = document.querySelector("#periodStartInput");
+const periodEndInput = document.querySelector("#periodEndInput");
+const clearPeriodButton = document.querySelector("#clearPeriodButton");
 
 let plannerState = createEmptyPlannerState();
 let activeFilter = "upcoming";
+let activePeriod = {
+  start: "",
+  end: "",
+};
+const expandedAppointmentIds = new Set();
 let unsubscribePeople = null;
 let unsubscribeAppointments = null;
 
@@ -104,6 +114,7 @@ form.addEventListener("submit", async (event) => {
     title: titleInput.value.trim(),
     date: dateInput.value,
     time: timeInput.value,
+    reason: reasonInput.value.trim(),
     hospital: hospitalInput.value.trim(),
     location: locationInput.value.trim(),
     doctor: doctorInput.value.trim(),
@@ -146,12 +157,31 @@ speakButton.addEventListener("click", () => {
 
 filterButtons.forEach((button) => {
   button.addEventListener("click", () => {
-    activeFilter = button.dataset.filter;
-    filterButtons.forEach((item) =>
-      item.classList.toggle("active", item === button),
-    );
-    renderAppointments();
+    setActiveFilter(button.dataset.filter);
+    if (activeFilter === "period") {
+      periodStartInput.focus();
+    }
   });
+});
+
+[periodStartInput, periodEndInput].forEach((input) => {
+  input.addEventListener("change", () => {
+    activePeriod = {
+      start: periodStartInput.value,
+      end: periodEndInput.value,
+    };
+    setActiveFilter("period");
+  });
+});
+
+clearPeriodButton.addEventListener("click", () => {
+  periodStartInput.value = "";
+  periodEndInput.value = "";
+  activePeriod = {
+    start: "",
+    end: "",
+  };
+  setActiveFilter("upcoming");
 });
 
 function render() {
@@ -255,11 +285,35 @@ function renderAppointments() {
 
   visibleAppointments.forEach((appointment) => {
     const card = appointmentTemplate.content.firstElementChild.cloneNode(true);
+    const details = card.querySelector(".card-details");
+    const toggleButton = card.querySelector(".details-toggle");
+    const detailsId = `appointment-details-${appointment.id}`;
+    const isExpanded = expandedAppointmentIds.has(appointment.id);
+
     card.querySelector(".date-line").textContent = formatDateTime(appointment);
     card.querySelector("h3").textContent = appointment.title;
+    const summaryLine = card.querySelector(".summary-line");
+    const companionsText = createCompanionsSummary(appointment);
+    summaryLine.textContent = companionsText;
+    summaryLine.classList.toggle(
+      "empty",
+      companionsText === "Nog niemand ingevuld",
+    );
+    details.id = detailsId;
+    details.hidden = !isExpanded;
+    toggleButton.setAttribute("aria-controls", detailsId);
+    toggleButton.setAttribute("aria-expanded", String(isExpanded));
+    toggleButton.textContent = isExpanded
+      ? "Details verbergen"
+      : "Details tonen";
+    toggleButton.addEventListener("click", () =>
+      toggleAppointmentDetails(appointment.id),
+    );
+
     card
       .querySelector("dl")
       .append(
+        createDetail("Waarom", appointment.reason || "Niet ingevuld"),
         createDetail("Ziekenhuis", appointment.hospital),
         createDetail("Locatie", appointment.location || "Niet ingevuld"),
         createDetail("Behandelaar", appointment.doctor || "Niet ingevuld"),
@@ -269,10 +323,7 @@ function renderAppointments() {
       card.querySelector(".attendance-summary"),
       appointment,
     );
-    renderQuickAttendanceControls(
-      card.querySelector(".card-main"),
-      appointment,
-    );
+    renderQuickAttendanceControls(details, appointment);
 
     const notes = card.querySelector(".notes");
     notes.textContent = appointment.notes;
@@ -284,7 +335,8 @@ function renderAppointments() {
     readButton.type = "button";
     readButton.textContent = "Lees deze afspraak voor";
     readButton.addEventListener("click", () => speakAppointment(appointment));
-    card.querySelector(".card-main").append(readButton);
+    card.querySelector(".card-summary").append(readButton);
+    details.append(card.querySelector(".card-actions"));
 
     card
       .querySelector(".edit-button")
@@ -308,6 +360,10 @@ function getVisibleAppointments(sortedAppointments) {
       .reverse();
   }
 
+  if (activeFilter === "period") {
+    return sortedAppointments.filter(isInSelectedPeriod);
+  }
+
   return sortedAppointments;
 }
 
@@ -320,7 +376,45 @@ function emptyStateMessage() {
     return "Er zijn nog geen afspraken geweest.";
   }
 
+  if (activeFilter === "period") {
+    return activePeriod.start || activePeriod.end
+      ? "Er staan geen afspraken in deze periode."
+      : "Kies een begin- en/of einddatum voor de periode.";
+  }
+
   return "Er zijn nog geen afspraken opgeslagen.";
+}
+
+function setActiveFilter(filter) {
+  activeFilter = filter;
+  filterButtons.forEach((button) =>
+    button.classList.toggle("active", button.dataset.filter === activeFilter),
+  );
+  periodFilter.hidden = activeFilter !== "period";
+  renderAppointments();
+}
+
+function toggleAppointmentDetails(id) {
+  if (expandedAppointmentIds.has(id)) {
+    expandedAppointmentIds.delete(id);
+  } else {
+    expandedAppointmentIds.add(id);
+  }
+
+  renderAppointments();
+}
+
+function createCompanionsSummary(appointment) {
+  const joiningPeople = plannerState.people
+    .filter((person) => appointment.attendance[person.id] === "joining")
+    .map((person) => person.name);
+
+  if (joiningPeople.length === 0) return "Nog niemand ingevuld";
+  if (joiningPeople.length <= 3) return joiningPeople.join(", ");
+
+  const visibleNames = joiningPeople.slice(0, 3).join(", ");
+  const remainingCount = joiningPeople.length - 3;
+  return `${visibleNames} + ${remainingCount}`;
 }
 
 function renderAttendanceSummary(container, appointment) {
@@ -341,11 +435,24 @@ function renderAttendanceSummary(container, appointment) {
 
   const list = document.createElement("div");
   list.className = "attendance-pills";
-  const joiningPeople = plannerState.people.filter(
-    (person) => appointment.attendance[person.id] === "joining",
-  );
+  const groupedPeople = {
+    joining: plannerState.people.filter(
+      (person) => appointment.attendance[person.id] === "joining",
+    ),
+    declined: plannerState.people.filter(
+      (person) => appointment.attendance[person.id] === "declined",
+    ),
+    unknown: plannerState.people.filter(
+      (person) =>
+        !appointment.attendance[person.id] ||
+        appointment.attendance[person.id] === "unknown",
+    ),
+  };
 
-  if (joiningPeople.length === 0) {
+  if (
+    groupedPeople.joining.length === 0 &&
+    groupedPeople.declined.length === 0
+  ) {
     const pill = document.createElement("span");
     pill.className = "attendance-pill unknown";
     pill.textContent = "Nog niemand ingevuld";
@@ -354,14 +461,42 @@ function renderAttendanceSummary(container, appointment) {
     return;
   }
 
-  joiningPeople.forEach((person) => {
-    const pill = document.createElement("span");
-    pill.className = "attendance-pill joining";
-    pill.textContent = person.name;
-    list.append(pill);
-  });
+  appendAttendanceGroup(list, "Gaat mee", groupedPeople.joining, "joining");
+  appendAttendanceGroup(
+    list,
+    "Gaat niet mee",
+    groupedPeople.declined,
+    "declined",
+  );
+  appendAttendanceGroup(
+    list,
+    "Nog niet ingevuld",
+    groupedPeople.unknown,
+    "unknown",
+  );
 
   container.append(list);
+}
+
+function appendAttendanceGroup(container, label, people, status) {
+  if (people.length === 0) return;
+
+  const group = document.createElement("div");
+  group.className = "attendance-pill-group";
+
+  const heading = document.createElement("p");
+  heading.className = "attendance-group-heading";
+  heading.textContent = label;
+  group.append(heading);
+
+  people.forEach((person) => {
+    const pill = document.createElement("span");
+    pill.className = `attendance-pill ${status}`;
+    pill.textContent = person.name;
+    group.append(pill);
+  });
+
+  container.append(group);
 }
 
 function renderQuickAttendanceControls(container, appointment) {
@@ -467,6 +602,7 @@ function editAppointment(id) {
   titleInput.value = appointment.title;
   dateInput.value = appointment.date;
   timeInput.value = appointment.time;
+  reasonInput.value = appointment.reason;
   hospitalInput.value = appointment.hospital;
   locationInput.value = appointment.location;
   doctorInput.value = appointment.doctor;
@@ -595,6 +731,9 @@ function createAppointmentSpeechText(appointment, opening) {
   const doctorText = appointment.doctor
     ? `De behandelaar is ${appointment.doctor}.`
     : "De behandelaar is nog niet ingevuld.";
+  const reasonText = appointment.reason
+    ? `De reden is ${appointment.reason}.`
+    : "";
   const notesText = appointment.notes
     ? `Praktische notities: ${appointment.notes}.`
     : "";
@@ -602,6 +741,7 @@ function createAppointmentSpeechText(appointment, opening) {
   return [
     `${opening} ${appointment.title}.`,
     `Dat is op ${formatDateTime(appointment)}.`,
+    reasonText,
     locationText,
     doctorText,
     attendanceText,
@@ -811,6 +951,7 @@ async function saveAppointment(appointment) {
     title: appointment.title,
     date: appointment.date,
     time: appointment.time,
+    reason: appointment.reason,
     hospital: appointment.hospital,
     location: appointment.location,
     doctor: appointment.doctor,
@@ -851,6 +992,7 @@ function normalizeAppointment(appointment) {
     title: String(appointment.title || ""),
     date: String(appointment.date || ""),
     time: String(appointment.time || ""),
+    reason: String(appointment.reason || ""),
     hospital: String(appointment.hospital || ""),
     location: String(appointment.location || ""),
     doctor: String(appointment.doctor || ""),
@@ -886,10 +1028,45 @@ function isUpcoming(appointment) {
   return getAppointmentTime(appointment) >= startOfToday();
 }
 
+function isInSelectedPeriod(appointment) {
+  const bounds = getSelectedPeriodBounds();
+  if (!bounds) return false;
+
+  const appointmentTime = getAppointmentTime(appointment);
+
+  return appointmentTime >= bounds.startTime && appointmentTime <= bounds.endTime;
+}
+
+function getSelectedPeriodBounds() {
+  const { start, end } = activePeriod;
+  if (!start && !end) return null;
+
+  if (start && end) {
+    const [firstDate, lastDate] = [start, end].sort();
+    return {
+      startTime: getDateStartTime(firstDate),
+      endTime: getDateEndTime(lastDate),
+    };
+  }
+
+  return {
+    startTime: start ? getDateStartTime(start) : Number.NEGATIVE_INFINITY,
+    endTime: end ? getDateEndTime(end) : Number.POSITIVE_INFINITY,
+  };
+}
+
 function getAppointmentTime(appointment) {
   return new Date(
     `${appointment.date}T${appointment.time || "00:00"}`,
   ).getTime();
+}
+
+function getDateStartTime(date) {
+  return new Date(`${date}T00:00`).getTime();
+}
+
+function getDateEndTime(date) {
+  return new Date(`${date}T23:59:59.999`).getTime();
 }
 
 function startOfToday() {
@@ -900,14 +1077,19 @@ function startOfToday() {
 
 function formatDateTime(appointment) {
   const date = new Date(`${appointment.date}T${appointment.time || "00:00"}`);
-  return new Intl.DateTimeFormat("nl-NL", {
+  const options = {
     weekday: "long",
     day: "numeric",
     month: "long",
     year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
+  };
+
+  if (appointment.time) {
+    options.hour = "2-digit";
+    options.minute = "2-digit";
+  }
+
+  return new Intl.DateTimeFormat("nl-NL", options).format(date);
 }
 
 function applySavedTheme() {
