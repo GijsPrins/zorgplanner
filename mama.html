@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Zorgplanner voor mama</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="reader-body">
+    <section class="access-shell" id="accessShell" aria-labelledby="accessTitle">
+      <form class="access-panel reader-access" id="accessForm">
+        <h1 id="accessTitle">Wachtwoord</h1>
+        <label>
+          Wachtwoord
+          <input id="passwordInput" name="password" type="password" required />
+        </label>
+        <p class="access-message" id="accessMessage" role="status"></p>
+        <button class="primary-button" id="accessSubmit" type="submit">
+          Openen
+        </button>
+      </form>
+    </section>
+
+    <main class="mama-page standalone" id="appShell" data-page="reader" hidden>
+      <a class="back-link" href="index.html">Terug naar beheer</a>
+      <p>Voor mama</p>
+      <h1 id="readerTitle">Nog geen afspraak</h1>
+      <strong id="readerDate">Er staan geen komende afspraken in de planner.</strong>
+      <button id="speakButton" type="button">Lees voor</button>
+      <dl id="readerDetails"></dl>
+    </main>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

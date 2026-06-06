@@ -7,21 +7,10 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <header class="app-header">
-      <div>
-        <p class="eyebrow">Familieplanning</p>
-        <h1>Zorgplanner</h1>
-      </div>
-    </header>
-
-    <section
-      class="access-shell"
-      id="accessShell"
-      aria-labelledby="accessTitle"
-    >
+    <section class="access-shell" id="accessShell" aria-labelledby="accessTitle">
       <form class="access-panel" id="accessForm">
         <p class="eyebrow">Besloten planning</p>
-        <h2 id="accessTitle">Voer het gedeelde wachtwoord in</h2>
+        <h1 id="accessTitle">Voer het gedeelde wachtwoord in</h1>
         <p class="access-copy">
           Deze familielink is afgeschermd. Gebruik het wachtwoord dat bij deze
           planning hoort.
@@ -48,198 +37,93 @@
       </form>
     </section>
 
-    <main class="app-shell" id="appShell" hidden>
-      <section class="toolbar" aria-label="Overzicht">
+    <main class="planner-shell" id="appShell" data-page="overview" hidden>
+      <header class="app-header">
         <div>
-          <p class="label">Volgende afspraak</p>
-          <p class="summary" id="nextAppointment">Nog geen afspraken</p>
+          <p class="eyebrow">Familieplanning</p>
+          <h1>Zorgplanner</h1>
         </div>
-        <div class="toolbar-actions">
-          <button
-            class="secondary-button speak-button"
-            id="speakButton"
-            type="button"
-          >
-            Lees voor
+        <a class="reader-link" href="mama.html">Voor mama</a>
+      </header>
+
+      <nav class="app-nav" aria-label="Beheer">
+        <a class="active" href="index.html">Overzicht</a>
+        <a href="afspraken.html">Afspraken</a>
+        <a href="mensen.html">Mensen</a>
+      </nav>
+
+      <section class="overview-grid">
+        <article class="next-card">
+          <p class="eyebrow">Volgende afspraak</p>
+          <h2 id="nextAppointmentTitle">Nog geen afspraak</h2>
+          <p id="nextAppointment">Nog geen komende afspraken</p>
+          <dl id="nextAppointmentDetails"></dl>
+          <div class="button-row">
+            <a class="light-button" href="afspraken.html">Beheren</a>
+            <a class="light-button" href="mama.html">Voorlezen</a>
+          </div>
+        </article>
+
+        <aside class="status-panel" aria-label="Samenvatting">
+          <article>
+            <span>Komende afspraken</span>
+            <strong id="upcomingCount">0</strong>
+          </article>
+          <article>
+            <span>Nog reactie nodig</span>
+            <strong id="pendingCount">0</strong>
+          </article>
+          <article>
+            <span>Mensen</span>
+            <strong id="peopleCount">0</strong>
+          </article>
+        </aside>
+      </section>
+
+      <section class="section-header">
+        <div>
+          <p class="eyebrow">Planning</p>
+          <h2>Alle aanstaande afspraken</h2>
+        </div>
+        <a class="secondary-link" href="afspraken.html">Beheren</a>
+      </section>
+
+      <section class="appointments-panel" aria-label="Aanstaande afspraken">
+        <div
+          class="segmented-control compact-filter"
+          role="group"
+          aria-label="Filter afspraken"
+        >
+          <button class="segment active" data-filter="upcoming" type="button">
+            Komend
+          </button>
+          <button class="segment" data-filter="history" type="button">
+            Geschiedenis
+          </button>
+          <button class="segment" data-filter="all" type="button">Alle</button>
+          <button class="segment" data-filter="period" type="button">
+            Periode
           </button>
         </div>
+        <div class="period-filter" id="periodFilter" hidden>
+          <label>
+            Van
+            <input id="periodStartInput" name="periodStart" type="date" />
+          </label>
+          <label>
+            Tot
+            <input id="periodEndInput" name="periodEnd" type="date" />
+          </label>
+          <button
+            class="link-button period-clear-button"
+            id="clearPeriodButton"
+            type="button"
+          >
+            Wis periode
+          </button>
+        </div>
+        <div class="appointment-list upcoming-list" id="appointmentList"></div>
       </section>
-
-      <section class="layout">
-        <section class="appointments-panel" aria-label="Afspraken">
-          <div class="panel-heading">
-            <h2>Afspraken</h2>
-            <div
-              class="segmented-control"
-              role="group"
-              aria-label="Filter afspraken"
-            >
-              <button
-                class="segment active"
-                data-filter="upcoming"
-                type="button"
-              >
-                Komend
-              </button>
-              <button class="segment" data-filter="history" type="button">
-                Geschiedenis
-              </button>
-              <button class="segment" data-filter="all" type="button">
-                Alle
-              </button>
-              <button class="segment" data-filter="period" type="button">
-                Periode
-              </button>
-            </div>
-          </div>
-          <div class="period-filter" id="periodFilter" hidden>
-            <label>
-              Van
-              <input id="periodStartInput" name="periodStart" type="date" />
-            </label>
-            <label>
-              Tot
-              <input id="periodEndInput" name="periodEnd" type="date" />
-            </label>
-            <button
-              class="link-button period-clear-button"
-              id="clearPeriodButton"
-              type="button"
-            >
-              Wis periode
-            </button>
-          </div>
-          <div class="appointment-list" id="appointmentList"></div>
-        </section>
-
-        <form class="appointment-form manage-panel" id="appointmentForm">
-          <input id="appointmentId" type="hidden" />
-          <div class="form-heading">
-            <h2 id="formTitle">Afspraak toevoegen</h2>
-            <button class="link-button" id="resetButton" type="button">
-              Nieuwe afspraak
-            </button>
-          </div>
-
-          <label>
-            Type afspraak
-            <select id="titleInput" name="title" required>
-              <option value="" disabled selected>Kies een type</option>
-              <option value="Behandeling">Behandeling</option>
-              <option value="Controle">Controle</option>
-              <option value="Intake">Intake</option>
-              <option value="Onderzoek">Onderzoek</option>
-              <option value="Telefonisch consult">Telefonisch consult</option>
-              <option value="Uitslag">Uitslag</option>
-            </select>
-          </label>
-
-          <div class="field-grid">
-            <label>
-              Datum
-              <input id="dateInput" name="date" type="date" required />
-            </label>
-            <label>
-              Tijd
-              <input id="timeInput" name="time" type="time" />
-            </label>
-          </div>
-
-          <label>
-            Waarom is deze afspraak?
-            <input
-              id="reasonInput"
-              name="reason"
-              type="text"
-              placeholder="Bijv. voorbereidende CT tbv radiotherapie"
-            />
-          </label>
-
-          <label>
-            Ziekenhuis
-            <select id="hospitalInput" name="hospital" required>
-              <option value="" disabled selected>Kies een ziekenhuis</option>
-              <option value="Antoni van Leeuwenhoek">
-                Antoni van Leeuwenhoek
-              </option>
-              <option value="St. Antonius Leidsche Rijn">
-                St. Antonius Leidsche Rijn
-              </option>
-              <option value="St. Antonius Nieuwegein">
-                St. Antonius Nieuwegein
-              </option>
-              <option value="UMCU">UMCU</option>
-            </select>
-          </label>
-
-          <label>
-            Locatie of afdeling
-            <input
-              id="locationInput"
-              name="location"
-              type="text"
-              placeholder="Bijv. poli, route of gebouw"
-            />
-          </label>
-
-          <label>
-            Behandelaar
-            <input
-              id="doctorInput"
-              name="doctor"
-              type="text"
-              placeholder="Naam behandelaar"
-            />
-          </label>
-
-          <fieldset class="attendance-fieldset">
-            <legend>Wie gaat mee?</legend>
-            <div class="attendance-editor" id="attendanceEditor"></div>
-          </fieldset>
-
-          <label>
-            Praktische notities
-            <textarea
-              id="notesInput"
-              name="notes"
-              rows="4"
-              placeholder="Bijv. vervoer, parkeren of verzamelen"
-            ></textarea>
-          </label>
-
-          <button class="primary-button" type="submit">Afspraak opslaan</button>
-        </form>
-
-        <section class="people-panel manage-panel" aria-label="Familieleden">
-          <div class="panel-heading">
-            <h2>Mensen</h2>
-          </div>
-          <form class="person-form" id="personForm">
-            <label>
-              Naam toevoegen
-              <input
-                id="personNameInput"
-                name="personName"
-                type="text"
-                placeholder="Naam aanwezige"
-              />
-            </label>
-            <button class="secondary-button" type="submit">Toevoegen</button>
-          </form>
-          <div class="people-list" id="peopleList"></div>
-        </section>
-      </section>
-
-      <footer class="settings-footer" aria-label="Instellingen">
-        <button
-          class="theme-toggle"
-          id="contrastToggle"
-          type="button"
-          aria-pressed="false"
-        >
-          Extra groot
-        </button>
-      </footer>
     </main>
 
     <template id="appointmentTemplate">
