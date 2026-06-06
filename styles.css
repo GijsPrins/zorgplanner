@@ -601,7 +601,27 @@ legend {
   max-width: 100%;
   margin-bottom: 0;
   color: #000000;
-  font-size: clamp(3.2rem, 16vw, 8rem);
+  font-size: clamp(3rem, 14vw, 7rem);
+  line-height: 0.94;
+  overflow-wrap: break-word;
+}
+
+.reader-appointment-list {
+  display: grid;
+  gap: 22px;
+}
+
+.reader-appointment-card {
+  display: grid;
+  gap: 16px;
+  border-top: 4px solid #000000;
+  padding-top: 18px;
+}
+
+.reader-appointment-card h2 {
+  margin-bottom: 0;
+  color: #000000;
+  font-size: clamp(3rem, 16vw, 8rem);
   line-height: 0.94;
   overflow-wrap: break-word;
 }
@@ -629,6 +649,13 @@ legend {
 
 .mama-page dd {
   font-size: 1.35rem;
+}
+
+.reader-empty {
+  margin: 0;
+  color: #000000;
+  font-size: 1.45rem;
+  font-weight: 900;
 }
 
 .back-link {

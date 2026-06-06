@@ -64,6 +64,7 @@ const peopleCount = document.querySelector("#peopleCount");
 const readerTitle = document.querySelector("#readerTitle");
 const readerDate = document.querySelector("#readerDate");
 const readerDetails = document.querySelector("#readerDetails");
+const readerAppointmentList = document.querySelector("#readerAppointmentList");
 const resetButton = document.querySelector("#resetButton");
 const contrastToggle = document.querySelector("#contrastToggle");
 const speakButton = document.querySelector("#speakButton");
@@ -422,6 +423,11 @@ function renderOverview() {
 }
 
 function renderReaderPage() {
+  if (readerAppointmentList) {
+    renderReaderAppointmentList();
+    return;
+  }
+
   if (!readerTitle && !readerDetails) return;
 
   const next = [...plannerState.appointments].sort(compareAppointments).find(isUpcoming);
@@ -442,6 +448,53 @@ function renderReaderPage() {
       createOverviewDetail("Meenemen", next.notes || "Geen notities"),
     );
   }
+}
+
+function renderReaderAppointmentList() {
+  readerAppointmentList.replaceChildren();
+
+  const upcomingAppointments = [...plannerState.appointments]
+    .sort(compareAppointments)
+    .filter(isUpcoming);
+
+  if (upcomingAppointments.length === 0) {
+    const emptyState = document.createElement("p");
+    emptyState.className = "reader-empty";
+    emptyState.textContent = "Er staan geen komende afspraken in de planner.";
+    readerAppointmentList.append(emptyState);
+    return;
+  }
+
+  upcomingAppointments.forEach((appointment) => {
+    const card = document.createElement("article");
+    card.className = "reader-appointment-card";
+
+    const title = document.createElement("h2");
+    title.textContent = appointment.title;
+
+    const date = document.createElement("strong");
+    date.textContent = formatDateTime(appointment);
+
+    const speak = document.createElement("button");
+    speak.type = "button";
+    speak.textContent = "Lees voor";
+    speak.addEventListener("click", () => speakAppointment(appointment));
+
+    const details = document.createElement("dl");
+    details.replaceChildren(
+      createOverviewDetail(
+        "Waar",
+        [appointment.hospital, appointment.location].filter(Boolean).join(", ") ||
+          "Niet ingevuld",
+      ),
+      createOverviewDetail("Behandelaar", appointment.doctor || "Niet ingevuld"),
+      createOverviewDetail("Wie gaat mee", createCompanionsSummary(appointment)),
+      createOverviewDetail("Meenemen", appointment.notes || "Geen notities"),
+    );
+
+    card.append(title, date, speak, details);
+    readerAppointmentList.append(card);
+  });
 }
 
 function createOverviewDetail(label, value) {

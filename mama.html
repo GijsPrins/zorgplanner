@@ -24,10 +24,12 @@
     <main class="mama-page standalone" id="appShell" data-page="reader" hidden>
       <a class="back-link" href="index.html">Terug naar beheer</a>
       <p>Voor mama</p>
-      <h1 id="readerTitle">Nog geen afspraak</h1>
-      <strong id="readerDate">Er staan geen komende afspraken in de planner.</strong>
-      <button id="speakButton" type="button">Lees voor</button>
-      <dl id="readerDetails"></dl>
+      <h1>Komende afspraken</h1>
+      <section
+        class="reader-appointment-list"
+        id="readerAppointmentList"
+        aria-label="Komende afspraken"
+      ></section>
     </main>
 
     <script type="module" src="./app.js"></script>
