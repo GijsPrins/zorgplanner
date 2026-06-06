@@ -56,10 +56,20 @@ const accessMessage = document.querySelector("#accessMessage");
 const accessSubmit = document.querySelector("#accessSubmit");
 const appShell = document.querySelector("#appShell");
 const nextAppointment = document.querySelector("#nextAppointment");
+const nextAppointmentTitle = document.querySelector("#nextAppointmentTitle");
+const nextAppointmentDetails = document.querySelector("#nextAppointmentDetails");
+const upcomingCount = document.querySelector("#upcomingCount");
+const pendingCount = document.querySelector("#pendingCount");
+const peopleCount = document.querySelector("#peopleCount");
+const readerTitle = document.querySelector("#readerTitle");
+const readerDate = document.querySelector("#readerDate");
+const readerDetails = document.querySelector("#readerDetails");
 const resetButton = document.querySelector("#resetButton");
 const contrastToggle = document.querySelector("#contrastToggle");
 const speakButton = document.querySelector("#speakButton");
 const filterButtons = document.querySelectorAll("[data-filter]");
+const viewButtons = document.querySelectorAll("[data-view]");
+const viewPanels = document.querySelectorAll("[data-view-panel]");
 const periodFilter = document.querySelector("#periodFilter");
 const periodStartInput = document.querySelector("#periodStartInput");
 const periodEndInput = document.querySelector("#periodEndInput");
@@ -67,19 +77,22 @@ const clearPeriodButton = document.querySelector("#clearPeriodButton");
 
 let plannerState = createEmptyPlannerState();
 let activeFilter = "upcoming";
+let activeView = "overview";
 let activePeriod = {
   start: "",
   end: "",
 };
+let appliedEditFromUrl = false;
 const expandedAppointmentIds = new Set();
 let unsubscribePeople = null;
 let unsubscribeAppointments = null;
 
 applySavedTheme();
+preserveFamilyInLinks();
 render();
 initializeAccess();
 
-accessForm.addEventListener("submit", async (event) => {
+accessForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
 
   const password = passwordInput.value;
@@ -88,7 +101,7 @@ accessForm.addEventListener("submit", async (event) => {
   await unlockPlanner(password);
 });
 
-personForm.addEventListener("submit", async (event) => {
+personForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
 
   const name = personNameInput.value.trim();
@@ -106,11 +119,11 @@ personForm.addEventListener("submit", async (event) => {
   await savePerson(person);
 });
 
-form.addEventListener("submit", async (event) => {
+form?.addEventListener("submit", async (event) => {
   event.preventDefault();
 
   const appointment = {
-    id: appointmentIdInput.value || createId(),
+    id: appointmentIdInput?.value || createId(),
     title: titleInput.value.trim(),
     date: dateInput.value,
     time: timeInput.value,
@@ -132,20 +145,22 @@ form.addEventListener("submit", async (event) => {
   }
 
   resetForm();
+  setActiveView("overview");
   render();
   await saveAppointment(appointment);
 });
 
-resetButton.addEventListener("click", resetForm);
+resetButton?.addEventListener("click", resetForm);
 
-contrastToggle.addEventListener("click", () => {
+contrastToggle?.addEventListener("click", () => {
   const enabled = !document.body.classList.contains("readable");
   document.body.classList.toggle("readable", enabled);
   localStorage.setItem(themeKey, String(enabled));
+  if (enabled) setActiveView("overview");
   updateThemeButton(enabled);
 });
 
-speakButton.addEventListener("click", () => {
+speakButton?.addEventListener("click", () => {
   if (window.speechSynthesis?.speaking) {
     window.speechSynthesis.cancel();
     updateSpeakButton(false);
@@ -158,13 +173,17 @@ speakButton.addEventListener("click", () => {
 filterButtons.forEach((button) => {
   button.addEventListener("click", () => {
     setActiveFilter(button.dataset.filter);
-    if (activeFilter === "period") {
+    if (activeFilter === "period" && periodStartInput) {
       periodStartInput.focus();
     }
   });
 });
 
-[periodStartInput, periodEndInput].forEach((input) => {
+viewButtons.forEach((button) => {
+  button.addEventListener("click", () => setActiveView(button.dataset.view));
+});
+
+[periodStartInput, periodEndInput].filter(Boolean).forEach((input) => {
   input.addEventListener("change", () => {
     activePeriod = {
       start: periodStartInput.value,
@@ -174,7 +193,7 @@ filterButtons.forEach((button) => {
   });
 });
 
-clearPeriodButton.addEventListener("click", () => {
+clearPeriodButton?.addEventListener("click", () => {
   periodStartInput.value = "";
   periodEndInput.value = "";
   activePeriod = {
@@ -185,13 +204,32 @@ clearPeriodButton.addEventListener("click", () => {
 });
 
 function render() {
+  applyEditFromUrl();
   renderPeople();
   renderAttendanceEditor();
   renderAppointments();
+  renderOverview();
+  renderReaderPage();
+  updateView();
   updateSpeakButton(window.speechSynthesis?.speaking || false);
 }
 
+function applyEditFromUrl() {
+  if (appliedEditFromUrl || !form) return;
+
+  const editId = new URLSearchParams(window.location.search).get("edit");
+  if (!editId) return;
+
+  const appointment = plannerState.appointments.find((item) => item.id === editId);
+  if (!appointment) return;
+
+  appliedEditFromUrl = true;
+  editAppointment(editId);
+}
+
 function renderPeople() {
+  if (!peopleList) return;
+
   peopleList.replaceChildren();
 
   if (plannerState.people.length === 0) {
@@ -204,7 +242,7 @@ function renderPeople() {
   }
 
   plannerState.people.forEach((person) => {
-    const item = document.createElement("div");
+    const item = document.createElement("article");
     item.className = "person-row";
 
     const name = document.createElement("span");
@@ -224,6 +262,8 @@ function renderPeople() {
 }
 
 function renderAttendanceEditor(appointment = getActiveAppointment()) {
+  if (!attendanceEditor) return;
+
   attendanceEditor.replaceChildren();
 
   if (plannerState.people.length === 0) {
@@ -273,6 +313,8 @@ function renderAppointments() {
   const visibleAppointments = getVisibleAppointments(sortedAppointments);
 
   renderNextAppointment(sortedAppointments);
+  if (!appointmentList || !appointmentTemplate) return;
+
   appointmentList.replaceChildren();
 
   if (visibleAppointments.length === 0) {
@@ -349,6 +391,82 @@ function renderAppointments() {
   });
 }
 
+function renderOverview() {
+  const sortedAppointments = [...plannerState.appointments].sort(
+    compareAppointments,
+  );
+  const upcomingAppointments = sortedAppointments.filter(isUpcoming);
+  const next = upcomingAppointments[0];
+
+  if (upcomingCount) upcomingCount.textContent = String(upcomingAppointments.length);
+  if (peopleCount) peopleCount.textContent = String(plannerState.people.length);
+  if (pendingCount) pendingCount.textContent = String(countPendingResponses(upcomingAppointments));
+
+  if (!nextAppointmentTitle && !nextAppointmentDetails) return;
+
+  if (!next) {
+    if (nextAppointmentTitle) nextAppointmentTitle.textContent = "Nog geen afspraak";
+    if (nextAppointment) nextAppointment.textContent = "Nog geen komende afspraken";
+    nextAppointmentDetails?.replaceChildren();
+    return;
+  }
+
+  if (nextAppointmentTitle) nextAppointmentTitle.textContent = next.title;
+  if (nextAppointment) nextAppointment.textContent = formatDateTime(next);
+  if (nextAppointmentDetails) {
+    nextAppointmentDetails.replaceChildren(
+      createOverviewDetail("Waar", [next.hospital, next.location].filter(Boolean).join(", ") || "Niet ingevuld"),
+      createOverviewDetail("Gaat mee", createCompanionsSummary(next)),
+    );
+  }
+}
+
+function renderReaderPage() {
+  if (!readerTitle && !readerDetails) return;
+
+  const next = [...plannerState.appointments].sort(compareAppointments).find(isUpcoming);
+  if (!next) {
+    if (readerTitle) readerTitle.textContent = "Geen afspraak";
+    if (readerDate) readerDate.textContent = "Er staan geen komende afspraken in de planner.";
+    readerDetails?.replaceChildren();
+    return;
+  }
+
+  if (readerTitle) readerTitle.textContent = next.title;
+  if (readerDate) readerDate.textContent = formatDateTime(next);
+  if (readerDetails) {
+    readerDetails.replaceChildren(
+      createOverviewDetail("Waar", [next.hospital, next.location].filter(Boolean).join(", ") || "Niet ingevuld"),
+      createOverviewDetail("Behandelaar", next.doctor || "Niet ingevuld"),
+      createOverviewDetail("Wie gaat mee", createCompanionsSummary(next)),
+      createOverviewDetail("Meenemen", next.notes || "Geen notities"),
+    );
+  }
+}
+
+function createOverviewDetail(label, value) {
+  const wrapper = document.createElement("div");
+  const term = document.createElement("dt");
+  const description = document.createElement("dd");
+  term.textContent = label;
+  description.textContent = value;
+  wrapper.append(term, description);
+  return wrapper;
+}
+
+function countPendingResponses(appointments) {
+  return appointments.reduce((count, appointment) => {
+    return (
+      count +
+      plannerState.people.filter(
+        (person) =>
+          !appointment.attendance[person.id] ||
+          appointment.attendance[person.id] === "unknown",
+      ).length
+    );
+  }, 0);
+}
+
 function getVisibleAppointments(sortedAppointments) {
   if (activeFilter === "upcoming") {
     return sortedAppointments.filter(isUpcoming);
@@ -390,8 +508,33 @@ function setActiveFilter(filter) {
   filterButtons.forEach((button) =>
     button.classList.toggle("active", button.dataset.filter === activeFilter),
   );
-  periodFilter.hidden = activeFilter !== "period";
+  if (periodFilter) periodFilter.hidden = activeFilter !== "period";
   renderAppointments();
+}
+
+function setActiveView(view) {
+  activeView = view;
+  updateView();
+}
+
+function updateView() {
+  if (document.body.classList.contains("readable")) {
+    activeView = "overview";
+  }
+
+  viewButtons.forEach((button) => {
+    const isActive = button.dataset.view === activeView;
+    button.classList.toggle("active", isActive);
+    if (isActive) {
+      button.setAttribute("aria-current", "page");
+    } else {
+      button.removeAttribute("aria-current");
+    }
+  });
+
+  viewPanels.forEach((panel) => {
+    panel.hidden = panel.dataset.viewPanel !== activeView;
+  });
 }
 
 function toggleAppointmentDetails(id) {
@@ -598,6 +741,12 @@ function editAppointment(id) {
   const appointment = plannerState.appointments.find((item) => item.id === id);
   if (!appointment) return;
 
+  if (!form) {
+    window.location.href = createPageUrl("afspraken.html", { edit: id });
+    return;
+  }
+
+  setActiveView("appointments");
   appointmentIdInput.value = appointment.id;
   titleInput.value = appointment.title;
   dateInput.value = appointment.date;
@@ -648,13 +797,17 @@ async function deletePerson(id) {
 }
 
 function resetForm() {
+  if (!form) return;
+
   form.reset();
-  appointmentIdInput.value = "";
-  formTitle.textContent = "Afspraak toevoegen";
+  if (appointmentIdInput) appointmentIdInput.value = "";
+  if (formTitle) formTitle.textContent = "Afspraak toevoegen";
   renderAttendanceEditor();
 }
 
 function getActiveAppointment() {
+  if (!appointmentIdInput) return undefined;
+
   return plannerState.appointments.find(
     (item) => item.id === appointmentIdInput.value,
   );
@@ -662,6 +815,8 @@ function getActiveAppointment() {
 
 function renderNextAppointment(sortedAppointments) {
   const upcomingAppointment = sortedAppointments.find(isUpcoming);
+  if (!nextAppointment) return;
+
   nextAppointment.textContent = upcomingAppointment
     ? `${upcomingAppointment.title} - ${formatDateTime(upcomingAppointment)}`
     : "Nog geen komende afspraken";
@@ -752,6 +907,8 @@ function createAppointmentSpeechText(appointment, opening) {
 }
 
 function updateSpeakButton(isSpeaking) {
+  if (!speakButton) return;
+
   speakButton.textContent = isSpeaking ? "Stop voorlezen" : "Lees voor";
   speakButton.setAttribute("aria-pressed", String(isSpeaking));
 }
@@ -1099,6 +1256,8 @@ function applySavedTheme() {
 }
 
 function updateThemeButton(enabled) {
+  if (!contrastToggle) return;
+
   contrastToggle.setAttribute("aria-pressed", String(enabled));
   contrastToggle.textContent = enabled ? "Normale tekst" : "Extra groot";
 }
@@ -1106,6 +1265,30 @@ function updateThemeButton(enabled) {
 function createId() {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
   return `id-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function preserveFamilyInLinks() {
+  const params = new URLSearchParams(window.location.search);
+  const queryFamilyId = params.get("family");
+  if (!queryFamilyId) return;
+
+  document.querySelectorAll('a[href$=".html"], a[href="index.html"]').forEach((link) => {
+    const href = link.getAttribute("href");
+    if (!href) return;
+
+    const url = new URL(href, window.location.href);
+    url.searchParams.set("family", queryFamilyId);
+    link.href = `${url.pathname.split("/").pop()}${url.search}${url.hash}`;
+  });
+}
+
+function createPageUrl(page, extraParams = {}) {
+  const params = new URLSearchParams(window.location.search);
+  Object.entries(extraParams).forEach(([key, value]) => {
+    if (value) params.set(key, value);
+  });
+  const query = params.toString();
+  return query ? `${page}?${query}` : page;
 }
 
 function getFamilyId() {
