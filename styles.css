@@ -421,6 +421,17 @@ dd {
   gap: 10px;
 }
 
+.attendance-row {
+  display: grid;
+  gap: 8px;
+  align-items: center;
+}
+
+.attendance-row > span,
+.quick-attendance-row > span {
+  font-weight: 900;
+}
+
 .attendance-heading,
 .quick-attendance-heading,
 .attendance-group-heading {
@@ -463,6 +474,13 @@ dd {
   color: #742929;
 }
 
+.attendance-pill.calling,
+.attendance-toggle[aria-pressed="true"].calling {
+  border-color: #8eb6d8;
+  background: #e8f3fb;
+  color: #1f547c;
+}
+
 .quick-attendance {
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -478,24 +496,47 @@ dd {
 .quick-attendance-actions,
 .card-actions {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+}
+
+.quick-attendance-actions {
+  grid-template-columns: repeat(3, minmax(44px, 1fr));
+}
+
+.card-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .attendance-toggle,
 .attendance-choice {
-  min-height: 40px;
+  display: grid;
+  min-height: 44px;
+  place-items: center;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
-  padding: 8px 10px;
+  padding: 8px;
+  font-size: 1.25rem;
   font-weight: 850;
+  line-height: 1;
 }
 
-.attendance-choice[aria-pressed="true"] {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: #ffffff;
+.attendance-choice[aria-pressed="true"].joining {
+  border-color: #78b99b;
+  background: #e7f6ed;
+  color: #154d38;
+}
+
+.attendance-choice[aria-pressed="true"].declined {
+  border-color: #d29b9b;
+  background: var(--danger-soft);
+  color: #742929;
+}
+
+.attendance-choice[aria-pressed="true"].calling {
+  border-color: #8eb6d8;
+  background: #e8f3fb;
+  color: #1f547c;
 }
 
 .delete-button,
@@ -551,6 +592,10 @@ legend {
 .attendance-choice-group {
   display: grid;
   gap: 10px;
+}
+
+.attendance-choice-group {
+  grid-template-columns: repeat(3, minmax(44px, 1fr));
 }
 
 .people-list-panel article {
@@ -726,6 +771,10 @@ legend {
 
   .attendance-choice-group {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .attendance-row {
+    grid-template-columns: minmax(0, 1fr) minmax(168px, 220px);
   }
 
   .upcoming-list {

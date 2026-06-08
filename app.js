@@ -29,8 +29,17 @@ const appointmentsRef = collection(db, "families", familyId, "appointments");
 const attendanceStatuses = {
   unknown: "Invullen",
   joining: "Aanwezig",
+  calling: "Inbellen",
   declined: "Afwezig",
 };
+
+const attendanceIcons = {
+  joining: "✓",
+  declined: "×",
+  calling: "☎",
+  unknown: "?",
+};
+const attendanceChoiceValues = ["joining", "declined", "calling"];
 
 const form = document.querySelector("#appointmentForm");
 const personForm = document.querySelector("#personForm");
@@ -287,12 +296,15 @@ function renderAttendanceEditor(appointment = getActiveAppointment()) {
     options.dataset.personId = person.id;
     const currentStatus = appointment?.attendance?.[person.id] || "unknown";
 
-    Object.entries(attendanceStatuses).forEach(([value, label]) => {
+    attendanceChoiceValues.forEach((value) => {
+      const label = attendanceStatuses[value];
       const button = document.createElement("button");
       button.className = `attendance-choice ${value}`;
       button.type = "button";
       button.dataset.status = value;
-      button.textContent = label;
+      button.title = label;
+      button.setAttribute("aria-label", `${person.name}: ${label}`);
+      button.textContent = attendanceIcons[value];
       button.setAttribute("aria-pressed", String(value === currentStatus));
       button.addEventListener("click", () => {
         options.querySelectorAll(".attendance-choice").forEach((item) => {
@@ -417,7 +429,7 @@ function renderOverview() {
   if (nextAppointmentDetails) {
     nextAppointmentDetails.replaceChildren(
       createOverviewDetail("Waar", [next.hospital, next.location].filter(Boolean).join(", ") || "Niet ingevuld"),
-      createOverviewDetail("Gaat mee", createCompanionsSummary(next)),
+      createOverviewDetail("Aanwezigheid", createCompanionsSummary(next)),
     );
   }
 }
@@ -444,7 +456,7 @@ function renderReaderPage() {
     readerDetails.replaceChildren(
       createOverviewDetail("Waar", [next.hospital, next.location].filter(Boolean).join(", ") || "Niet ingevuld"),
       createOverviewDetail("Behandelaar", next.doctor || "Niet ingevuld"),
-      createOverviewDetail("Wie gaat mee", createCompanionsSummary(next)),
+      createOverviewDetail("Aanwezigheid", createCompanionsSummary(next)),
       createOverviewDetail("Meenemen", next.notes || "Geen notities"),
     );
   }
@@ -488,7 +500,7 @@ function renderReaderAppointmentList() {
           "Niet ingevuld",
       ),
       createOverviewDetail("Behandelaar", appointment.doctor || "Niet ingevuld"),
-      createOverviewDetail("Wie gaat mee", createCompanionsSummary(appointment)),
+      createOverviewDetail("Aanwezigheid", createCompanionsSummary(appointment)),
       createOverviewDetail("Meenemen", appointment.notes || "Geen notities"),
     );
 
@@ -604,13 +616,26 @@ function createCompanionsSummary(appointment) {
   const joiningPeople = plannerState.people
     .filter((person) => appointment.attendance[person.id] === "joining")
     .map((person) => person.name);
+  const callingPeople = plannerState.people
+    .filter((person) => appointment.attendance[person.id] === "calling")
+    .map((person) => person.name);
 
-  if (joiningPeople.length === 0) return "Nog niemand ingevuld";
-  if (joiningPeople.length <= 3) return joiningPeople.join(", ");
+  const parts = [];
+  if (joiningPeople.length > 0) {
+    parts.push(`Mee: ${formatPeopleList(joiningPeople)}`);
+  }
+  if (callingPeople.length > 0) {
+    parts.push(`Inbellen: ${formatPeopleList(callingPeople)}`);
+  }
 
-  const visibleNames = joiningPeople.slice(0, 3).join(", ");
-  const remainingCount = joiningPeople.length - 3;
-  return `${visibleNames} + ${remainingCount}`;
+  return parts.length > 0 ? parts.join(" · ") : "Nog niemand ingevuld";
+}
+
+function formatPeopleList(people) {
+  if (people.length <= 3) return people.join(", ");
+
+  const visibleNames = people.slice(0, 3).join(", ");
+  return `${visibleNames} + ${people.length - 3}`;
 }
 
 function renderAttendanceSummary(container, appointment) {
@@ -618,7 +643,7 @@ function renderAttendanceSummary(container, appointment) {
 
   const heading = document.createElement("p");
   heading.className = "attendance-heading";
-  heading.textContent = "Wie gaat mee";
+  heading.textContent = "Aanwezigheid";
   container.append(heading);
 
   if (plannerState.people.length === 0) {
@@ -635,6 +660,9 @@ function renderAttendanceSummary(container, appointment) {
     joining: plannerState.people.filter(
       (person) => appointment.attendance[person.id] === "joining",
     ),
+    calling: plannerState.people.filter(
+      (person) => appointment.attendance[person.id] === "calling",
+    ),
     declined: plannerState.people.filter(
       (person) => appointment.attendance[person.id] === "declined",
     ),
@@ -647,6 +675,7 @@ function renderAttendanceSummary(container, appointment) {
 
   if (
     groupedPeople.joining.length === 0 &&
+    groupedPeople.calling.length === 0 &&
     groupedPeople.declined.length === 0
   ) {
     const pill = document.createElement("span");
@@ -658,6 +687,7 @@ function renderAttendanceSummary(container, appointment) {
   }
 
   appendAttendanceGroup(list, "Gaat mee", groupedPeople.joining, "joining");
+  appendAttendanceGroup(list, "Belt in", groupedPeople.calling, "calling");
   appendAttendanceGroup(
     list,
     "Gaat niet mee",
@@ -728,8 +758,14 @@ function renderQuickAttendanceControls(container, appointment) {
       "declined",
       "Afwezig",
     );
+    const callingButton = createAttendanceButton(
+      appointment,
+      person,
+      "calling",
+      "Inbellen",
+    );
 
-    actions.append(joiningButton, declinedButton);
+    actions.append(joiningButton, declinedButton, callingButton);
     row.append(name, actions);
     controls.append(row);
   });
@@ -742,7 +778,9 @@ function createAttendanceButton(appointment, person, status, label) {
   const currentStatus = appointment.attendance[person.id] || "unknown";
   button.className = `attendance-toggle ${status}`;
   button.type = "button";
-  button.textContent = label;
+  button.title = label;
+  button.setAttribute("aria-label", `${person.name}: ${label}`);
+  button.textContent = attendanceIcons[status];
   button.setAttribute("aria-pressed", String(currentStatus === status));
   button.addEventListener("click", () =>
     updateAttendanceStatus(appointment.id, person.id, status),
@@ -923,11 +961,18 @@ function createAppointmentSpeechText(appointment, opening) {
   const joiningPeople = plannerState.people
     .filter((person) => appointment.attendance[person.id] === "joining")
     .map((person) => person.name);
+  const callingPeople = plannerState.people
+    .filter((person) => appointment.attendance[person.id] === "calling")
+    .map((person) => person.name);
 
   const attendanceText =
     joiningPeople.length > 0
       ? `${joiningPeople.join(", ")} gaat mee.`
       : "Er is nog niemand ingevuld die meegaat.";
+  const callingText =
+    callingPeople.length > 0
+      ? `${callingPeople.join(", ")} moet ingebeld worden.`
+      : "";
 
   const locationParts = [appointment.hospital, appointment.location]
     .map((part) => part.trim())
@@ -953,6 +998,7 @@ function createAppointmentSpeechText(appointment, opening) {
     locationText,
     doctorText,
     attendanceText,
+    callingText,
     notesText,
   ]
     .filter(Boolean)
