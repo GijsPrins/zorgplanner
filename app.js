@@ -15,7 +15,6 @@ import {
 } from "firebase/firestore";
 import { firebaseConfig } from "./firebase-config.js";
 
-const themeKey = "carePlannerReadableMode";
 const familyId = getFamilyId();
 const accessKey = `carePlannerAccess:${familyId}`;
 
@@ -64,9 +63,6 @@ const passwordInput = document.querySelector("#passwordInput");
 const accessMessage = document.querySelector("#accessMessage");
 const accessSubmit = document.querySelector("#accessSubmit");
 const appShell = document.querySelector("#appShell");
-const nextAppointment = document.querySelector("#nextAppointment");
-const nextAppointmentTitle = document.querySelector("#nextAppointmentTitle");
-const nextAppointmentDetails = document.querySelector("#nextAppointmentDetails");
 const upcomingCount = document.querySelector("#upcomingCount");
 const pendingCount = document.querySelector("#pendingCount");
 const peopleCount = document.querySelector("#peopleCount");
@@ -74,12 +70,13 @@ const readerTitle = document.querySelector("#readerTitle");
 const readerDate = document.querySelector("#readerDate");
 const readerDetails = document.querySelector("#readerDetails");
 const readerAppointmentList = document.querySelector("#readerAppointmentList");
-const resetButton = document.querySelector("#resetButton");
-const contrastToggle = document.querySelector("#contrastToggle");
+const newAppointmentButton = document.querySelector("#newAppointmentButton");
+const closeEditorButton = document.querySelector("#closeEditorButton");
+const deleteAppointmentButton = document.querySelector(
+  "#deleteAppointmentButton",
+);
 const speakButton = document.querySelector("#speakButton");
 const filterButtons = document.querySelectorAll("[data-filter]");
-const viewButtons = document.querySelectorAll("[data-view]");
-const viewPanels = document.querySelectorAll("[data-view-panel]");
 const periodFilter = document.querySelector("#periodFilter");
 const periodStartInput = document.querySelector("#periodStartInput");
 const periodEndInput = document.querySelector("#periodEndInput");
@@ -87,17 +84,15 @@ const clearPeriodButton = document.querySelector("#clearPeriodButton");
 
 let plannerState = createEmptyPlannerState();
 let activeFilter = "upcoming";
-let activeView = "overview";
+const expandedAttendanceIds = new Set();
 let activePeriod = {
   start: "",
   end: "",
 };
 let appliedEditFromUrl = false;
-const expandedAppointmentIds = new Set();
 let unsubscribePeople = null;
 let unsubscribeAppointments = null;
 
-applySavedTheme();
 preserveFamilyInLinks();
 render();
 initializeAccess();
@@ -155,29 +150,32 @@ form?.addEventListener("submit", async (event) => {
   }
 
   resetForm();
-  setActiveView("overview");
+  closeEditor();
   render();
   await saveAppointment(appointment);
 });
 
-resetButton?.addEventListener("click", resetForm);
-
-contrastToggle?.addEventListener("click", () => {
-  const enabled = !document.body.classList.contains("readable");
-  document.body.classList.toggle("readable", enabled);
-  localStorage.setItem(themeKey, String(enabled));
-  if (enabled) setActiveView("overview");
-  updateThemeButton(enabled);
+newAppointmentButton?.addEventListener("click", () => {
+  resetForm();
+  openEditor();
+  titleInput.focus();
 });
 
-speakButton?.addEventListener("click", () => {
-  if (window.speechSynthesis?.speaking) {
-    window.speechSynthesis.cancel();
-    updateSpeakButton(false);
-    return;
-  }
+closeEditorButton?.addEventListener("click", () => {
+  closeEditor();
+  resetForm();
+});
 
-  speakText(createSpokenSummary());
+deleteAppointmentButton?.addEventListener("click", async () => {
+  const id = appointmentIdInput?.value;
+  if (id) await deleteAppointment(id);
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && document.body.classList.contains("editing")) {
+    closeEditor();
+    resetForm();
+  }
 });
 
 filterButtons.forEach((button) => {
@@ -187,10 +185,6 @@ filterButtons.forEach((button) => {
       periodStartInput.focus();
     }
   });
-});
-
-viewButtons.forEach((button) => {
-  button.addEventListener("click", () => setActiveView(button.dataset.view));
 });
 
 [periodStartInput, periodEndInput].filter(Boolean).forEach((input) => {
@@ -218,10 +212,8 @@ function render() {
   renderPeople();
   renderAttendanceEditor();
   renderAppointments();
-  renderOverview();
+  renderCounts();
   renderReaderPage();
-  updateView();
-  updateSpeakButton(window.speechSynthesis?.speaking || false);
 }
 
 function applyEditFromUrl() {
@@ -320,13 +312,12 @@ function renderAttendanceEditor(appointment = getActiveAppointment()) {
 }
 
 function renderAppointments() {
+  if (!appointmentList || !appointmentTemplate) return;
+
   const sortedAppointments = [...plannerState.appointments].sort(
     compareAppointments,
   );
   const visibleAppointments = getVisibleAppointments(sortedAppointments);
-
-  renderNextAppointment(sortedAppointments);
-  if (!appointmentList || !appointmentTemplate) return;
 
   appointmentList.replaceChildren();
 
@@ -340,98 +331,133 @@ function renderAppointments() {
 
   visibleAppointments.forEach((appointment) => {
     const card = appointmentTemplate.content.firstElementChild.cloneNode(true);
-    const details = card.querySelector(".card-details");
-    const toggleButton = card.querySelector(".details-toggle");
-    const detailsId = `appointment-details-${appointment.id}`;
-    const isExpanded = expandedAppointmentIds.has(appointment.id);
 
-    card.querySelector(".date-line").textContent = formatDateTime(appointment);
+    card.querySelector(".when-line").textContent =
+      formatCardDateTime(appointment);
     card.querySelector("h3").textContent = appointment.title;
-    const summaryLine = card.querySelector(".summary-line");
-    const companionsText = createCompanionsSummary(appointment);
-    summaryLine.textContent = companionsText;
-    summaryLine.classList.toggle(
-      "empty",
-      companionsText === "Nog niemand ingevuld",
+    card.querySelector(".place-line").textContent =
+      [appointment.hospital, appointment.location].filter(Boolean).join(" · ") ||
+      "Locatie nog niet ingevuld";
+
+    const doctorLine = card.querySelector(".doctor-line");
+    doctorLine.textContent = appointment.doctor;
+    doctorLine.hidden = !appointment.doctor;
+
+    renderAttendanceChips(card.querySelector(".chips"), appointment);
+
+    card.setAttribute(
+      "aria-label",
+      `${appointment.title}, ${formatDateTime(appointment)}, bewerken`,
     );
-    details.id = detailsId;
-    details.hidden = !isExpanded;
-    toggleButton.setAttribute("aria-controls", detailsId);
-    toggleButton.setAttribute("aria-expanded", String(isExpanded));
-    toggleButton.textContent = isExpanded
-      ? "Details verbergen"
-      : "Details tonen";
-    toggleButton.addEventListener("click", () =>
-      toggleAppointmentDetails(appointment.id),
-    );
-
-    card
-      .querySelector("dl")
-      .append(
-        createDetail("Waarom", appointment.reason || "Niet ingevuld"),
-        createDetail("Ziekenhuis", appointment.hospital),
-        createDetail("Locatie", appointment.location || "Niet ingevuld"),
-        createDetail("Behandelaar", appointment.doctor || "Niet ingevuld"),
-      );
-
-    renderAttendanceSummary(
-      card.querySelector(".attendance-summary"),
-      appointment,
-    );
-    renderQuickAttendanceControls(details, appointment);
-
-    const notes = card.querySelector(".notes");
-    notes.textContent = appointment.notes;
-    notes.hidden = !appointment.notes;
-
-    const readButton = document.createElement("button");
-    readButton.className =
-      "secondary-button speak-button appointment-speak-button";
-    readButton.type = "button";
-    readButton.textContent = "Lees deze afspraak voor";
-    readButton.addEventListener("click", () => speakAppointment(appointment));
-    card.querySelector(".card-summary").append(readButton);
-    details.append(card.querySelector(".card-actions"));
-
-    card
-      .querySelector(".edit-button")
-      .addEventListener("click", () => editAppointment(appointment.id));
-    card
-      .querySelector(".delete-button")
-      .addEventListener("click", () => deleteAppointment(appointment.id));
+    card.addEventListener("click", () => editAppointment(appointment.id));
+    card.addEventListener("keydown", (event) => {
+      if (event.target !== event.currentTarget) return;
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        editAppointment(appointment.id);
+      }
+    });
 
     appointmentList.append(card);
   });
 }
 
-function renderOverview() {
-  const sortedAppointments = [...plannerState.appointments].sort(
-    compareAppointments,
+function renderAttendanceChips(container, appointment) {
+  container.replaceChildren();
+
+  if (plannerState.people.length === 0) {
+    const chip = document.createElement("span");
+    chip.className = "chip";
+    chip.textContent = "Nog geen mensen toegevoegd";
+    container.append(chip);
+    return;
+  }
+
+  const expanded = expandedAttendanceIds.has(appointment.id);
+  const visiblePeople = expanded
+    ? plannerState.people
+    : plannerState.people.filter(
+        (person) =>
+          appointment.attendance[person.id] &&
+          appointment.attendance[person.id] !== "unknown",
+      );
+
+  visiblePeople.forEach((person) =>
+    container.append(createAttendanceChip(appointment, person)),
   );
-  const upcomingAppointments = sortedAppointments.filter(isUpcoming);
-  const next = upcomingAppointments[0];
+
+  const hiddenCount = plannerState.people.length - visiblePeople.length;
+  if (!expanded && hiddenCount === 0) return;
+
+  const toggle = document.createElement("button");
+  toggle.className = "chip toggle";
+  toggle.type = "button";
+  if (expanded) {
+    toggle.textContent = "Minder ▴";
+    toggle.title = "Alleen reacties tonen";
+  } else if (visiblePeople.length === 0) {
+    toggle.textContent = "Nog niemand ingevuld ▾";
+    toggle.title = "Aanwezigheid invullen";
+  } else {
+    toggle.textContent = `+${hiddenCount} invullen ▾`;
+    toggle.title = "Iedereen tonen";
+  }
+  toggle.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (expanded) {
+      expandedAttendanceIds.delete(appointment.id);
+    } else {
+      expandedAttendanceIds.add(appointment.id);
+    }
+    renderAppointments();
+  });
+  container.append(toggle);
+}
+
+function createAttendanceChip(appointment, person) {
+  const status = appointment.attendance[person.id] || "unknown";
+  const chip = document.createElement("button");
+  chip.className = `chip ${status}`;
+  chip.type = "button";
+  chip.textContent = `${attendanceIcons[status]} ${person.name}`;
+  chip.title = `${person.name}: ${attendanceStatuses[status]} — tik om te wijzigen`;
+  chip.setAttribute(
+    "aria-label",
+    `${person.name}: ${attendanceStatuses[status]}, tik om te wijzigen`,
+  );
+  chip.addEventListener("click", (event) => {
+    event.stopPropagation();
+    cycleAttendanceStatus(appointment.id, person.id);
+  });
+  return chip;
+}
+
+async function cycleAttendanceStatus(appointmentId, personId) {
+  const cycle = ["unknown", "joining", "calling", "declined"];
+
+  plannerState.appointments = plannerState.appointments.map((appointment) => {
+    if (appointment.id !== appointmentId) return appointment;
+
+    const attendance = { ...appointment.attendance };
+    const current = attendance[personId] || "unknown";
+    attendance[personId] = cycle[(cycle.indexOf(current) + 1) % cycle.length];
+    return { ...appointment, attendance };
+  });
+
+  renderAppointments();
+  renderCounts();
+  const appointment = plannerState.appointments.find(
+    (item) => item.id === appointmentId,
+  );
+  if (appointment) await saveAppointment(appointment);
+}
+
+function renderCounts() {
+  const upcomingAppointments = plannerState.appointments.filter(isUpcoming);
 
   if (upcomingCount) upcomingCount.textContent = String(upcomingAppointments.length);
   if (peopleCount) peopleCount.textContent = String(plannerState.people.length);
   if (pendingCount) pendingCount.textContent = String(countPendingResponses(upcomingAppointments));
-
-  if (!nextAppointmentTitle && !nextAppointmentDetails) return;
-
-  if (!next) {
-    if (nextAppointmentTitle) nextAppointmentTitle.textContent = "Nog geen afspraak";
-    if (nextAppointment) nextAppointment.textContent = "Nog geen komende afspraken";
-    nextAppointmentDetails?.replaceChildren();
-    return;
-  }
-
-  if (nextAppointmentTitle) nextAppointmentTitle.textContent = next.title;
-  if (nextAppointment) nextAppointment.textContent = formatDateTime(next);
-  if (nextAppointmentDetails) {
-    nextAppointmentDetails.replaceChildren(
-      createOverviewDetail("Waar", [next.hospital, next.location].filter(Boolean).join(", ") || "Niet ingevuld"),
-      createOverviewDetail("Aanwezigheid", createCompanionsSummary(next)),
-    );
-  }
 }
 
 function renderReaderPage() {
@@ -494,11 +520,8 @@ function renderReaderAppointmentList() {
 
     const details = document.createElement("dl");
     details.replaceChildren(
-      createOverviewDetail(
-        "Waar",
-        [appointment.hospital, appointment.location].filter(Boolean).join(", ") ||
-          "Niet ingevuld",
-      ),
+      createOverviewDetail("Waar", appointment.hospital || "Niet ingevuld"),
+      createOverviewDetail("Route", appointment.location || "Niet ingevuld"),
       createOverviewDetail("Behandelaar", appointment.doctor || "Niet ingevuld"),
       createOverviewDetail("Aanwezigheid", createCompanionsSummary(appointment)),
       createOverviewDetail("Meenemen", appointment.notes || "Geen notities"),
@@ -577,39 +600,13 @@ function setActiveFilter(filter) {
   renderAppointments();
 }
 
-function setActiveView(view) {
-  activeView = view;
-  updateView();
+function openEditor() {
+  if (!form) return;
+  document.body.classList.add("editing");
 }
 
-function updateView() {
-  if (document.body.classList.contains("readable")) {
-    activeView = "overview";
-  }
-
-  viewButtons.forEach((button) => {
-    const isActive = button.dataset.view === activeView;
-    button.classList.toggle("active", isActive);
-    if (isActive) {
-      button.setAttribute("aria-current", "page");
-    } else {
-      button.removeAttribute("aria-current");
-    }
-  });
-
-  viewPanels.forEach((panel) => {
-    panel.hidden = panel.dataset.viewPanel !== activeView;
-  });
-}
-
-function toggleAppointmentDetails(id) {
-  if (expandedAppointmentIds.has(id)) {
-    expandedAppointmentIds.delete(id);
-  } else {
-    expandedAppointmentIds.add(id);
-  }
-
-  renderAppointments();
+function closeEditor() {
+  document.body.classList.remove("editing");
 }
 
 function createCompanionsSummary(appointment) {
@@ -638,182 +635,6 @@ function formatPeopleList(people) {
   return `${visibleNames} + ${people.length - 3}`;
 }
 
-function renderAttendanceSummary(container, appointment) {
-  container.replaceChildren();
-
-  const heading = document.createElement("p");
-  heading.className = "attendance-heading";
-  heading.textContent = "Aanwezigheid";
-  container.append(heading);
-
-  if (plannerState.people.length === 0) {
-    const empty = document.createElement("p");
-    empty.className = "muted-line";
-    empty.textContent = "Nog geen mensen toegevoegd.";
-    container.append(empty);
-    return;
-  }
-
-  const list = document.createElement("div");
-  list.className = "attendance-pills";
-  const groupedPeople = {
-    joining: plannerState.people.filter(
-      (person) => appointment.attendance[person.id] === "joining",
-    ),
-    calling: plannerState.people.filter(
-      (person) => appointment.attendance[person.id] === "calling",
-    ),
-    declined: plannerState.people.filter(
-      (person) => appointment.attendance[person.id] === "declined",
-    ),
-    unknown: plannerState.people.filter(
-      (person) =>
-        !appointment.attendance[person.id] ||
-        appointment.attendance[person.id] === "unknown",
-    ),
-  };
-
-  if (
-    groupedPeople.joining.length === 0 &&
-    groupedPeople.calling.length === 0 &&
-    groupedPeople.declined.length === 0
-  ) {
-    const pill = document.createElement("span");
-    pill.className = "attendance-pill unknown";
-    pill.textContent = "Nog niemand ingevuld";
-    list.append(pill);
-    container.append(list);
-    return;
-  }
-
-  appendAttendanceGroup(list, "Gaat mee", groupedPeople.joining, "joining");
-  appendAttendanceGroup(list, "Belt in", groupedPeople.calling, "calling");
-  appendAttendanceGroup(
-    list,
-    "Gaat niet mee",
-    groupedPeople.declined,
-    "declined",
-  );
-  appendAttendanceGroup(
-    list,
-    "Nog niet ingevuld",
-    groupedPeople.unknown,
-    "unknown",
-  );
-
-  container.append(list);
-}
-
-function appendAttendanceGroup(container, label, people, status) {
-  if (people.length === 0) return;
-
-  const group = document.createElement("div");
-  group.className = "attendance-pill-group";
-
-  const heading = document.createElement("p");
-  heading.className = "attendance-group-heading";
-  heading.textContent = label;
-  group.append(heading);
-
-  people.forEach((person) => {
-    const pill = document.createElement("span");
-    pill.className = `attendance-pill ${status}`;
-    pill.textContent = person.name;
-    group.append(pill);
-  });
-
-  container.append(group);
-}
-
-function renderQuickAttendanceControls(container, appointment) {
-  if (plannerState.people.length === 0) return;
-
-  const controls = document.createElement("div");
-  controls.className = "quick-attendance";
-
-  const heading = document.createElement("p");
-  heading.className = "quick-attendance-heading";
-  heading.textContent = "Aanwezigheid aanpassen";
-  controls.append(heading);
-
-  plannerState.people.forEach((person) => {
-    const row = document.createElement("div");
-    row.className = "quick-attendance-row";
-
-    const name = document.createElement("span");
-    name.textContent = person.name;
-
-    const actions = document.createElement("div");
-    actions.className = "quick-attendance-actions";
-
-    const joiningButton = createAttendanceButton(
-      appointment,
-      person,
-      "joining",
-      "Aanwezig",
-    );
-    const declinedButton = createAttendanceButton(
-      appointment,
-      person,
-      "declined",
-      "Afwezig",
-    );
-    const callingButton = createAttendanceButton(
-      appointment,
-      person,
-      "calling",
-      "Inbellen",
-    );
-
-    actions.append(joiningButton, declinedButton, callingButton);
-    row.append(name, actions);
-    controls.append(row);
-  });
-
-  container.append(controls);
-}
-
-function createAttendanceButton(appointment, person, status, label) {
-  const button = document.createElement("button");
-  const currentStatus = appointment.attendance[person.id] || "unknown";
-  button.className = `attendance-toggle ${status}`;
-  button.type = "button";
-  button.title = label;
-  button.setAttribute("aria-label", `${person.name}: ${label}`);
-  button.textContent = attendanceIcons[status];
-  button.setAttribute("aria-pressed", String(currentStatus === status));
-  button.addEventListener("click", () =>
-    updateAttendanceStatus(appointment.id, person.id, status),
-  );
-  return button;
-}
-
-async function updateAttendanceStatus(appointmentId, personId, status) {
-  plannerState.appointments = plannerState.appointments.map((appointment) => {
-    if (appointment.id !== appointmentId) return appointment;
-
-    const attendance = { ...appointment.attendance };
-    attendance[personId] = attendance[personId] === status ? "unknown" : status;
-    return { ...appointment, attendance };
-  });
-
-  renderAppointments();
-  const appointment = plannerState.appointments.find(
-    (item) => item.id === appointmentId,
-  );
-  if (appointment) await saveAppointment(appointment);
-}
-
-function createDetail(label, value) {
-  const fragment = document.createDocumentFragment();
-  const term = document.createElement("dt");
-  const description = document.createElement("dd");
-  term.textContent = label;
-  description.textContent = value;
-  fragment.append(term, description);
-  return fragment;
-}
-
 function collectAttendance() {
   const attendance = {};
   attendanceEditor
@@ -833,11 +654,10 @@ function editAppointment(id) {
   if (!appointment) return;
 
   if (!form) {
-    window.location.href = createPageUrl("afspraken.html", { edit: id });
+    window.location.href = createPageUrl("index.html", { edit: id });
     return;
   }
 
-  setActiveView("appointments");
   appointmentIdInput.value = appointment.id;
   titleInput.value = appointment.title;
   dateInput.value = appointment.date;
@@ -848,8 +668,9 @@ function editAppointment(id) {
   doctorInput.value = appointment.doctor;
   notesInput.value = appointment.notes;
   formTitle.textContent = "Afspraak bewerken";
+  if (deleteAppointmentButton) deleteAppointmentButton.hidden = false;
   renderAttendanceEditor(appointment);
-  titleInput.focus();
+  openEditor();
 }
 
 async function deleteAppointment(id) {
@@ -863,6 +684,7 @@ async function deleteAppointment(id) {
     (item) => item.id !== id,
   );
   resetForm();
+  closeEditor();
   render();
   await deleteDoc(doc(appointmentsRef, id));
 }
@@ -892,7 +714,8 @@ function resetForm() {
 
   form.reset();
   if (appointmentIdInput) appointmentIdInput.value = "";
-  if (formTitle) formTitle.textContent = "Afspraak toevoegen";
+  if (formTitle) formTitle.textContent = "Nieuwe afspraak";
+  if (deleteAppointmentButton) deleteAppointmentButton.hidden = true;
   renderAttendanceEditor();
 }
 
@@ -901,31 +724,6 @@ function getActiveAppointment() {
 
   return plannerState.appointments.find(
     (item) => item.id === appointmentIdInput.value,
-  );
-}
-
-function renderNextAppointment(sortedAppointments) {
-  const upcomingAppointment = sortedAppointments.find(isUpcoming);
-  if (!nextAppointment) return;
-
-  nextAppointment.textContent = upcomingAppointment
-    ? `${upcomingAppointment.title} - ${formatDateTime(upcomingAppointment)}`
-    : "Nog geen komende afspraken";
-}
-
-function createSpokenSummary() {
-  const sortedAppointments = [...plannerState.appointments].sort(
-    compareAppointments,
-  );
-  const upcomingAppointment = sortedAppointments.find(isUpcoming);
-
-  if (!upcomingAppointment) {
-    return "Er staan geen komende afspraken in de planner.";
-  }
-
-  return createAppointmentSpeechText(
-    upcomingAppointment,
-    "De volgende afspraak is",
   );
 }
 
@@ -1348,17 +1146,20 @@ function formatDateTime(appointment) {
   return new Intl.DateTimeFormat("nl-NL", options).format(date);
 }
 
-function applySavedTheme() {
-  const enabled = localStorage.getItem(themeKey) === "true";
-  document.body.classList.toggle("readable", enabled);
-  updateThemeButton(enabled);
-}
+function formatCardDateTime(appointment) {
+  const date = new Date(`${appointment.date}T${appointment.time || "00:00"}`);
+  const options = {
+    weekday: "short",
+    day: "numeric",
+    month: "long",
+  };
 
-function updateThemeButton(enabled) {
-  if (!contrastToggle) return;
+  if (date.getFullYear() !== new Date().getFullYear()) {
+    options.year = "numeric";
+  }
 
-  contrastToggle.setAttribute("aria-pressed", String(enabled));
-  contrastToggle.textContent = enabled ? "Normale tekst" : "Extra groot";
+  const formatted = new Intl.DateTimeFormat("nl-NL", options).format(date);
+  return appointment.time ? `${formatted} · ${appointment.time}` : formatted;
 }
 
 function createId() {

@@ -11,8 +11,8 @@
       <form class="access-panel" id="accessForm">
         <p class="eyebrow">Besloten planning</p>
         <h1 id="accessTitle">Voer het gedeelde wachtwoord in</h1>
-        <label>
-          Wachtwoord
+        <label class="field">
+          <span>Wachtwoord</span>
           <input id="passwordInput" name="password" type="password" required />
         </label>
         <p class="access-message" id="accessMessage" role="status"></p>
@@ -22,42 +22,36 @@
       </form>
     </section>
 
-    <main class="planner-shell" id="appShell" data-page="people" hidden>
+    <main class="app-shell" id="appShell" data-page="people" hidden>
       <header class="app-header">
         <div>
-          <p class="eyebrow">Familieplanning</p>
           <h1>Mensen</h1>
+          <p class="app-sub"><span id="peopleCount">0</span> familieleden</p>
         </div>
-        <a class="reader-link" href="mama.html">Voor mama</a>
+        <a class="mama-link" href="mama.html">Voor mama</a>
       </header>
 
-      <nav class="app-nav" aria-label="Beheer">
-        <a href="index.html">Overzicht</a>
-        <a href="afspraken.html">Afspraken</a>
-        <a class="active" href="mensen.html">Mensen</a>
-      </nav>
-
-      <section class="section-header">
-        <div>
-          <p class="eyebrow">Beheer</p>
-          <h2>Familieleden</h2>
-        </div>
-      </section>
-
-      <form class="add-person-panel" id="personForm">
-        <label>
-          Naam toevoegen
-          <input
-            id="personNameInput"
-            name="personName"
-            type="text"
-            placeholder="Bijv. Marieke"
-          />
-        </label>
-        <button class="primary-button" type="submit">Toevoegen</button>
+      <form class="person-form" id="personForm">
+        <input
+          id="personNameInput"
+          name="personName"
+          type="text"
+          placeholder="Naam, bijv. Marieke"
+          aria-label="Naam toevoegen"
+        />
+        <button class="add-button" type="submit">Toevoegen</button>
       </form>
 
-      <section class="people-list-panel" id="peopleList"></section>
+      <section class="people-list" id="peopleList" aria-label="Familieleden"></section>
+
+      <nav class="tab-bar" aria-label="Beheer">
+        <a class="tab" href="index.html">
+          <span class="tab-icon" aria-hidden="true">▦</span>Afspraken
+        </a>
+        <a class="tab active" href="mensen.html" aria-current="page">
+          <span class="tab-icon" aria-hidden="true">☺</span>Mensen
+        </a>
+      </nav>
     </main>
 
     <script type="module" src="./app.js"></script>
