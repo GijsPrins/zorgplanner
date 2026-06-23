@@ -9,6 +9,7 @@ export default defineConfig({
         appointments: "afspraken.html",
         people: "mensen.html",
         reader: "mama.html",
+        phones: "telefoons.html",
       },
     },
   },

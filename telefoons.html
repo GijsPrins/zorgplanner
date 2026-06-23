@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Zorgplanner telefoonnummers</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <section class="access-shell" id="accessShell" aria-labelledby="accessTitle">
+      <form class="access-panel" id="accessForm">
+        <p class="eyebrow">Besloten planning</p>
+        <h1 id="accessTitle">Voer het gedeelde wachtwoord in</h1>
+        <label class="field">
+          <span>Wachtwoord</span>
+          <input id="passwordInput" name="password" type="password" required />
+        </label>
+        <p class="access-message" id="accessMessage" role="status"></p>
+        <button class="primary-button" id="accessSubmit" type="submit">
+          Planner openen
+        </button>
+      </form>
+    </section>
+
+    <main class="app-shell" id="appShell" data-page="phones" hidden>
+      <header class="app-header">
+        <div>
+          <h1>Telefoonnummers</h1>
+          <p class="app-sub">Belangrijke nummers voor mama</p>
+        </div>
+        <a class="mama-link" href="mama.html">Voor mama</a>
+      </header>
+
+      <form class="phone-settings" id="phoneSettingsForm">
+        <label class="field">
+          <span>Operatiedatum optioneel</span>
+          <input id="operationDateInput" name="operationDate" type="date" />
+        </label>
+        <button class="add-button" type="submit">Opslaan</button>
+      </form>
+
+      <section
+        class="phone-recommendation"
+        id="phoneRecommendation"
+        aria-live="polite"
+      ></section>
+
+      <form class="phone-form" id="phoneForm">
+        <input id="phoneIdInput" type="hidden" />
+        <label class="field">
+          <span>Fase van behandeling</span>
+          <input id="phonePhaseInput" name="phase" type="text" required />
+        </label>
+        <label class="field">
+          <span>Contactpersoon</span>
+          <input id="phoneContactInput" name="contact" type="text" required />
+        </label>
+        <label class="field">
+          <span>Telefoonnummer</span>
+          <input id="phoneNumberInput" name="phone" type="tel" required />
+        </label>
+        <label class="field">
+          <span>Gebruik voor voorstel</span>
+          <select id="phoneSuggestionInput" name="suggestion">
+            <option value="">Niet automatisch voorstellen</option>
+            <option value="before-surgery">Voor/tot 3 maanden na operatie</option>
+            <option value="after-surgery">Vanaf 3 maanden na operatie</option>
+          </select>
+        </label>
+        <button class="add-button" type="submit" id="phoneSaveButton">
+          Nummer opslaan
+        </button>
+      </form>
+
+      <section
+        class="phone-list"
+        id="phoneList"
+        aria-label="Belangrijke telefoonnummers"
+      ></section>
+
+      <nav class="tab-bar" aria-label="Beheer">
+        <a class="tab" href="index.html">
+          <span class="tab-icon" aria-hidden="true">▦</span>Afspraken
+        </a>
+        <a class="tab" href="mensen.html">
+          <span class="tab-icon" aria-hidden="true">☺</span>Mensen
+        </a>
+        <a class="tab active" href="telefoons.html" aria-current="page">
+          <span class="tab-icon" aria-hidden="true">☎</span>Telefoonnummers
+        </a>
+      </nav>
+    </main>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

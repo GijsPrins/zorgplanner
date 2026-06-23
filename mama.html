@@ -23,6 +23,9 @@
 
     <main class="mama-page standalone" id="appShell" data-page="reader" hidden>
       <a class="back-link" href="index.html">Terug naar beheer</a>
+      <a class="reader-phone-link" href="#readerPhoneSection">
+        Belangrijke telefoonnummers
+      </a>
       <p>Voor mama</p>
       <h1>Komende afspraken</h1>
       <section
@@ -30,6 +33,15 @@
         id="readerAppointmentList"
         aria-label="Komende afspraken"
       ></section>
+      <section
+        class="reader-phone-section"
+        id="readerPhoneSection"
+        aria-label="Belangrijke telefoonnummers"
+      >
+        <h1>Belangrijke telefoonnummers</h1>
+        <div id="readerPhoneRecommendation"></div>
+        <div class="reader-phone-list" id="readerPhoneList"></div>
+      </section>
     </main>
 
     <script type="module" src="./app.js"></script>

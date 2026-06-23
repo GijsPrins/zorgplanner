@@ -25,6 +25,45 @@ const familyRef = doc(db, "families", familyId);
 const peopleRef = collection(db, "families", familyId, "people");
 const appointmentsRef = collection(db, "families", familyId, "appointments");
 
+const defaultPhoneNumbers = [
+  {
+    id: "onderzoeken",
+    phase: "Onderzoeken",
+    contact: "Wilma Pakkalaan / Sanne Zaghini (Antonius)",
+    phone: "088-3205137",
+    suggestion: "",
+  },
+  {
+    id: "chemotherapie",
+    phase: "Chemotherapie",
+    contact: "Simone Budel / Jeanette van Houwelingen (Antonius)",
+    phone: "088-3205171",
+    suggestion: "",
+  },
+  {
+    id: "bestraling",
+    phase: "Bestraling",
+    contact: "Secretarieel Radiotherapie (UMCU of St. Antonius)",
+    phone: "088-7558800",
+    suggestion: "",
+  },
+  {
+    id: "rondom-operatie",
+    phase: "Rondom uw operatie (voorbereiding tot 3 maanden na uw operatie)",
+    contact: "Carlo Schippers / Elke van Lunteren / Pleun Keij (UMCU)",
+    phone: "088-7556901",
+    suggestion: "before-surgery",
+  },
+  {
+    id: "na-operatie",
+    phase: "Vanaf ongeveer 3 maanden na uw operatie",
+    contact: "Wilma Pakkalaan / Sanne Zaghini (Antonius)",
+    phone: "088-3205137",
+    suggestion: "after-surgery",
+  },
+];
+const defaultPhoneNumberIds = new Set(defaultPhoneNumbers.map((item) => item.id));
+
 const attendanceStatuses = {
   unknown: "Invullen",
   joining: "Aanwezig",
@@ -81,6 +120,21 @@ const periodFilter = document.querySelector("#periodFilter");
 const periodStartInput = document.querySelector("#periodStartInput");
 const periodEndInput = document.querySelector("#periodEndInput");
 const clearPeriodButton = document.querySelector("#clearPeriodButton");
+const phoneSettingsForm = document.querySelector("#phoneSettingsForm");
+const operationDateInput = document.querySelector("#operationDateInput");
+const phoneRecommendation = document.querySelector("#phoneRecommendation");
+const phoneForm = document.querySelector("#phoneForm");
+const phoneIdInput = document.querySelector("#phoneIdInput");
+const phonePhaseInput = document.querySelector("#phonePhaseInput");
+const phoneContactInput = document.querySelector("#phoneContactInput");
+const phoneNumberInput = document.querySelector("#phoneNumberInput");
+const phoneSuggestionInput = document.querySelector("#phoneSuggestionInput");
+const phoneSaveButton = document.querySelector("#phoneSaveButton");
+const phoneList = document.querySelector("#phoneList");
+const readerPhoneRecommendation = document.querySelector(
+  "#readerPhoneRecommendation",
+);
+const readerPhoneList = document.querySelector("#readerPhoneList");
 
 let plannerState = createEmptyPlannerState();
 let activeFilter = "upcoming";
@@ -92,6 +146,7 @@ let activePeriod = {
 let appliedEditFromUrl = false;
 let unsubscribePeople = null;
 let unsubscribeAppointments = null;
+let unsubscribePlannerSettings = null;
 
 preserveFamilyInLinks();
 render();
@@ -207,6 +262,40 @@ clearPeriodButton?.addEventListener("click", () => {
   setActiveFilter("upcoming");
 });
 
+phoneSettingsForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  plannerState.settings.operationDate = operationDateInput.value;
+  renderPhoneRecommendation();
+  renderReaderPhones();
+  await savePlannerSettings();
+});
+
+phoneForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  const phoneNumber = {
+    id: phoneIdInput.value || createId(),
+    phase: phonePhaseInput.value.trim(),
+    contact: phoneContactInput.value.trim(),
+    phone: phoneNumberInput.value.trim(),
+    suggestion: phoneSuggestionInput.value,
+  };
+
+  const existingIndex = plannerState.phoneNumbers.findIndex(
+    (item) => item.id === phoneNumber.id,
+  );
+  if (existingIndex >= 0) {
+    plannerState.phoneNumbers[existingIndex] = phoneNumber;
+  } else {
+    plannerState.phoneNumbers.push(phoneNumber);
+  }
+
+  resetPhoneForm();
+  renderPhones();
+  await savePhoneNumber(phoneNumber);
+});
+
 function render() {
   applyEditFromUrl();
   renderPeople();
@@ -214,6 +303,8 @@ function render() {
   renderAppointments();
   renderCounts();
   renderReaderPage();
+  renderPhones();
+  renderReaderPhones();
 }
 
 function applyEditFromUrl() {
@@ -532,6 +623,169 @@ function renderReaderAppointmentList() {
   });
 }
 
+function renderPhones() {
+  renderPhoneSettings();
+  renderPhoneRecommendation();
+  renderPhoneList();
+}
+
+function renderPhoneSettings() {
+  if (!operationDateInput) return;
+
+  operationDateInput.value = plannerState.settings.operationDate || "";
+}
+
+function renderPhoneRecommendation() {
+  if (!phoneRecommendation) return;
+
+  phoneRecommendation.replaceChildren();
+  const recommendation = getRecommendedPhoneNumber();
+
+  if (!plannerState.settings.operationDate) {
+    const empty = document.createElement("p");
+    empty.className = "empty-state small";
+    empty.textContent =
+      "Vul eventueel een operatiedatum in om automatisch een waarschijnlijk relevant nummer te tonen.";
+    phoneRecommendation.append(empty);
+    return;
+  }
+
+  if (!recommendation) {
+    const empty = document.createElement("p");
+    empty.className = "empty-state small";
+    empty.textContent = "Er is nog geen passend voorstel voor deze operatiedatum.";
+    phoneRecommendation.append(empty);
+    return;
+  }
+
+  phoneRecommendation.append(createPhoneCard(recommendation, true));
+}
+
+function renderPhoneList() {
+  if (!phoneList) return;
+
+  phoneList.replaceChildren();
+
+  if (plannerState.phoneNumbers.length === 0) {
+    const emptyState = document.createElement("p");
+    emptyState.className = "empty-state";
+    emptyState.textContent = "Er zijn nog geen telefoonnummers opgeslagen.";
+    phoneList.append(emptyState);
+    return;
+  }
+
+  plannerState.phoneNumbers.forEach((phoneNumber) => {
+    phoneList.append(createPhoneCard(phoneNumber));
+  });
+}
+
+function renderReaderPhones() {
+  if (!readerPhoneList && !readerPhoneRecommendation) return;
+
+  if (readerPhoneRecommendation) {
+    readerPhoneRecommendation.replaceChildren();
+    const recommendation = getRecommendedPhoneNumber();
+    if (recommendation) {
+      const title = document.createElement("p");
+      title.className = "reader-phone-label";
+      title.textContent = "Waarschijnlijk nu relevant";
+      readerPhoneRecommendation.append(
+        title,
+        createReaderPhoneCard(recommendation, true),
+      );
+    }
+  }
+
+  if (!readerPhoneList) return;
+
+  readerPhoneList.replaceChildren();
+
+  if (plannerState.phoneNumbers.length === 0) {
+    const emptyState = document.createElement("p");
+    emptyState.className = "reader-empty";
+    emptyState.textContent = "Er zijn nog geen telefoonnummers opgeslagen.";
+    readerPhoneList.append(emptyState);
+    return;
+  }
+
+  plannerState.phoneNumbers.forEach((phoneNumber) => {
+    readerPhoneList.append(createReaderPhoneCard(phoneNumber));
+  });
+}
+
+function createPhoneCard(phoneNumber, isRecommendation = false) {
+  const card = document.createElement("article");
+  card.className = isRecommendation ? "phone-card recommended" : "phone-card";
+
+  const body = document.createElement("div");
+  const label = document.createElement("p");
+  label.className = "when-line";
+  label.textContent = isRecommendation ? "Voorstel" : "Telefoonnummer";
+
+  const title = document.createElement("h3");
+  title.textContent = phoneNumber.phase;
+
+  const contact = document.createElement("p");
+  contact.className = "phone-contact";
+  contact.textContent = phoneNumber.contact;
+
+  const link = document.createElement("a");
+  link.className = "phone-number";
+  link.href = `tel:${phoneNumber.phone.replace(/\s/g, "")}`;
+  link.textContent = phoneNumber.phone;
+
+  body.append(label, title, contact, link);
+  card.append(body);
+
+  if (!isRecommendation) {
+    const actions = document.createElement("div");
+    actions.className = "phone-actions";
+
+    const editButton = document.createElement("button");
+    editButton.className = "link-button";
+    editButton.type = "button";
+    editButton.textContent = "Aanpassen";
+    editButton.addEventListener("click", () => editPhoneNumber(phoneNumber.id));
+
+    actions.append(editButton);
+
+    if (!defaultPhoneNumberIds.has(phoneNumber.id)) {
+      const deleteButton = document.createElement("button");
+      deleteButton.className = "link-button danger-link";
+      deleteButton.type = "button";
+      deleteButton.textContent = "Verwijderen";
+      deleteButton.addEventListener("click", () =>
+        deletePhoneNumber(phoneNumber.id),
+      );
+      actions.append(deleteButton);
+    }
+
+    card.append(actions);
+  }
+
+  return card;
+}
+
+function createReaderPhoneCard(phoneNumber, isRecommendation = false) {
+  const card = document.createElement("article");
+  card.className = isRecommendation
+    ? "reader-phone-card recommended"
+    : "reader-phone-card";
+
+  const title = document.createElement("h2");
+  title.textContent = phoneNumber.phase;
+
+  const contact = document.createElement("p");
+  contact.textContent = phoneNumber.contact;
+
+  const link = document.createElement("a");
+  link.href = `tel:${phoneNumber.phone.replace(/\s/g, "")}`;
+  link.textContent = phoneNumber.phone;
+
+  card.append(title, contact, link);
+  return card;
+}
+
 function createOverviewDetail(label, value) {
   const wrapper = document.createElement("div");
   const term = document.createElement("dt");
@@ -709,6 +963,59 @@ async function deletePerson(id) {
   await Promise.all(plannerState.appointments.map(saveAppointment));
 }
 
+function editPhoneNumber(id) {
+  const phoneNumber = plannerState.phoneNumbers.find((item) => item.id === id);
+  if (!phoneNumber || !phoneForm) return;
+
+  phoneIdInput.value = phoneNumber.id;
+  phonePhaseInput.value = phoneNumber.phase;
+  phoneContactInput.value = phoneNumber.contact;
+  phoneNumberInput.value = phoneNumber.phone;
+  phoneSuggestionInput.value = phoneNumber.suggestion;
+  phoneSaveButton.textContent = "Wijzigingen opslaan";
+  phonePhaseInput.focus();
+}
+
+async function deletePhoneNumber(id) {
+  const phoneNumber = plannerState.phoneNumbers.find((item) => item.id === id);
+  if (!phoneNumber) return;
+
+  const confirmed = confirm(`Telefoonnummer verwijderen: ${phoneNumber.phase}?`);
+  if (!confirmed) return;
+
+  plannerState.phoneNumbers = plannerState.phoneNumbers.filter(
+    (item) => item.id !== id,
+  );
+  resetPhoneForm();
+  renderPhones();
+  renderReaderPhones();
+  await savePhoneNumbers();
+}
+
+function resetPhoneForm() {
+  if (!phoneForm) return;
+
+  phoneForm.reset();
+  phoneIdInput.value = "";
+  phoneSaveButton.textContent = "Nummer opslaan";
+}
+
+function getRecommendedPhoneNumber() {
+  const operationDate = plannerState.settings.operationDate;
+  if (!operationDate) return null;
+
+  const operationTime = getDateStartTime(operationDate);
+  if (Number.isNaN(operationTime)) return null;
+
+  const threeMonthsAfterOperation = addMonths(new Date(operationTime), 3);
+  const suggestion =
+    Date.now() <= getDateEndTime(toDateInputValue(threeMonthsAfterOperation))
+      ? "before-surgery"
+      : "after-surgery";
+
+  return plannerState.phoneNumbers.find((item) => item.suggestion === suggestion);
+}
+
 function resetForm() {
   if (!form) return;
 
@@ -814,6 +1121,10 @@ function createEmptyPlannerState() {
   return {
     people: [],
     appointments: [],
+    phoneNumbers: defaultPhoneNumbers.map(normalizePhoneNumber),
+    settings: {
+      operationDate: "",
+    },
   };
 }
 
@@ -940,6 +1251,7 @@ async function connectToFirebase() {
 
     unsubscribePeople?.();
     unsubscribeAppointments?.();
+    unsubscribePlannerSettings?.();
 
     unsubscribePeople = onSnapshot(
       peopleRef,
@@ -970,6 +1282,19 @@ async function connectToFirebase() {
       },
       handleAccessError,
     );
+
+    unsubscribePlannerSettings = onSnapshot(
+      familyRef,
+      (snapshot) => {
+        const familyData = snapshot.data() || {};
+        plannerState.phoneNumbers = Array.isArray(familyData.phoneNumbers)
+          ? mergeDefaultPhoneNumbers(familyData.phoneNumbers.map(normalizePhoneNumber))
+          : defaultPhoneNumbers.map(normalizePhoneNumber);
+        plannerState.settings = normalizePlannerSettings(familyData);
+        render();
+      },
+      handleAccessError,
+    );
   } catch (error) {
     console.error("Firebase verbinden is niet gelukt", error);
     handleAccessError(error);
@@ -980,8 +1305,10 @@ function handleAccessError(error) {
   console.error("Gedeelde planning openen is niet gelukt", error);
   unsubscribePeople?.();
   unsubscribeAppointments?.();
+  unsubscribePlannerSettings?.();
   unsubscribePeople = null;
   unsubscribeAppointments = null;
+  unsubscribePlannerSettings = null;
   plannerState = createEmptyPlannerState();
   render();
 
@@ -1015,6 +1342,32 @@ async function saveAppointment(appointment) {
   });
 }
 
+async function savePhoneNumber(phoneNumber) {
+  await savePhoneNumbers();
+}
+
+async function savePhoneNumbers() {
+  await setDoc(
+    familyRef,
+    {
+      phoneNumbers: plannerState.phoneNumbers,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
+}
+
+async function savePlannerSettings() {
+  await setDoc(
+    familyRef,
+    {
+      operationDate: plannerState.settings.operationDate || "",
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
+}
+
 function normalizePlannerState(state) {
   if (Array.isArray(state)) {
     return {
@@ -1030,6 +1383,10 @@ function normalizePlannerState(state) {
     appointments: Array.isArray(state.appointments)
       ? state.appointments.map(normalizeAppointment)
       : [],
+    phoneNumbers: Array.isArray(state.phoneNumbers)
+      ? mergeDefaultPhoneNumbers(state.phoneNumbers.map(normalizePhoneNumber))
+      : defaultPhoneNumbers.map(normalizePhoneNumber),
+    settings: normalizePlannerSettings(state.settings || {}),
   };
 }
 
@@ -1053,6 +1410,39 @@ function normalizeAppointment(appointment) {
     attendance: normalizeAttendance(appointment),
     notes: String(appointment.notes || ""),
   };
+}
+
+function normalizePhoneNumber(phoneNumber) {
+  return {
+    id: String(phoneNumber.id || createId()),
+    phase: String(phoneNumber.phase || "").trim(),
+    contact: String(phoneNumber.contact || "").trim(),
+    phone: String(phoneNumber.phone || "").trim(),
+    suggestion: ["before-surgery", "after-surgery"].includes(
+      phoneNumber.suggestion,
+    )
+      ? phoneNumber.suggestion
+      : "",
+  };
+}
+
+function normalizePlannerSettings(settings) {
+  return {
+    operationDate: String(settings.operationDate || ""),
+  };
+}
+
+function mergeDefaultPhoneNumbers(savedPhoneNumbers) {
+  const savedById = new Map(savedPhoneNumbers.map((item) => [item.id, item]));
+  const mergedDefaults = defaultPhoneNumbers.map((phoneNumber) =>
+    normalizePhoneNumber({ ...phoneNumber, ...savedById.get(phoneNumber.id) }),
+  );
+  const customPhoneNumbers = savedPhoneNumbers.filter(
+    (phoneNumber) => !defaultPhoneNumberIds.has(phoneNumber.id),
+  );
+  return [...mergedDefaults, ...customPhoneNumbers].filter(
+    (phoneNumber) => phoneNumber.phase && phoneNumber.contact && phoneNumber.phone,
+  );
 }
 
 function normalizeAttendance(appointment) {
@@ -1121,6 +1511,19 @@ function getDateStartTime(date) {
 
 function getDateEndTime(date) {
   return new Date(`${date}T23:59:59.999`).getTime();
+}
+
+function addMonths(date, months) {
+  const next = new Date(date);
+  next.setMonth(next.getMonth() + months);
+  return next;
+}
+
+function toDateInputValue(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function startOfToday() {
