@@ -298,6 +298,7 @@ textarea {
   letter-spacing: -0.02em;
 }
 
+.source-line,
 .place-line,
 .doctor-line {
   margin: 0;
@@ -305,10 +306,16 @@ textarea {
   font-size: 0.92rem;
 }
 
+.source-line {
+  color: var(--text);
+  font-weight: 650;
+}
+
 .doctor-line {
   margin-top: 2px;
 }
 
+.source-line[hidden],
 .doctor-line[hidden] {
   display: none;
 }

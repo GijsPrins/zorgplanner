@@ -7,7 +7,7 @@ Een kleine Nederlandstalige plannapplicatie voor ziekenhuisafspraken.
 - Afspraken toevoegen, bewerken en verwijderen.
 - Genodigden toevoegen aan de planner.
 - Type afspraak en ziekenhuis kiezen uit een vaste lijst.
-- Datum, tijd, locatie, behandelaar en praktische notities vastleggen.
+- Datum, tijd, bronziekenhuis, locatie, behandelaar en praktische notities vastleggen.
 - Per genodigde aangeven: nog niet ingevuld, gaat mee of gaat niet mee.
 - Afspraken filteren op komend, geschiedenis of alle.
 - Mobile-first interface: op telefoons staat het afsprakenoverzicht bovenaan.

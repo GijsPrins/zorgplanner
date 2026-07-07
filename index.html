@@ -138,6 +138,31 @@
         <p class="form-section">Waar</p>
         <div class="form-group">
           <label class="field">
+            <span>Afkomstig van</span>
+            <select id="sourceHospitalInput" name="sourceHospital">
+              <option value="" selected>Kies een bron</option>
+              <option value="Antoni van Leeuwenhoek">
+                Antoni van Leeuwenhoek
+              </option>
+              <option value="St. Antonius Leidsche Rijn">
+                St. Antonius Leidsche Rijn
+              </option>
+              <option value="St. Antonius Nieuwegein">
+                St. Antonius Nieuwegein
+              </option>
+              <option value="UMCU">UMCU</option>
+              <option value="__other__">Anders</option>
+            </select>
+          </label>
+          <label class="field" id="sourceHospitalOtherField" hidden>
+            <span>Andere bron</span>
+            <input
+              id="sourceHospitalOtherInput"
+              name="sourceHospitalOther"
+              type="text"
+            />
+          </label>
+          <label class="field">
             <span>Ziekenhuis</span>
             <select id="hospitalInput" name="hospital" required>
               <option value="" disabled selected>Kies een ziekenhuis</option>
@@ -192,6 +217,7 @@
       <article class="appointment-card" tabindex="0" role="button">
         <p class="when-line"></p>
         <h3></h3>
+        <p class="source-line"></p>
         <p class="place-line"></p>
         <p class="doctor-line"></p>
         <div class="card-divider"></div>

@@ -78,6 +78,13 @@ const attendanceIcons = {
   unknown: "?",
 };
 const attendanceChoiceValues = ["joining", "declined", "calling"];
+const otherSourceHospitalValue = "__other__";
+const sourceHospitalPresetValues = new Set([
+  "Antoni van Leeuwenhoek",
+  "St. Antonius Leidsche Rijn",
+  "St. Antonius Nieuwegein",
+  "UMCU",
+]);
 
 const form = document.querySelector("#appointmentForm");
 const personForm = document.querySelector("#personForm");
@@ -87,6 +94,13 @@ const titleInput = document.querySelector("#titleInput");
 const dateInput = document.querySelector("#dateInput");
 const timeInput = document.querySelector("#timeInput");
 const reasonInput = document.querySelector("#reasonInput");
+const sourceHospitalInput = document.querySelector("#sourceHospitalInput");
+const sourceHospitalOtherField = document.querySelector(
+  "#sourceHospitalOtherField",
+);
+const sourceHospitalOtherInput = document.querySelector(
+  "#sourceHospitalOtherInput",
+);
 const hospitalInput = document.querySelector("#hospitalInput");
 const locationInput = document.querySelector("#locationInput");
 const doctorInput = document.querySelector("#doctorInput");
@@ -188,6 +202,7 @@ form?.addEventListener("submit", async (event) => {
     date: dateInput.value,
     time: timeInput.value,
     reason: reasonInput.value.trim(),
+    sourceHospital: getSourceHospitalValue(),
     hospital: hospitalInput.value.trim(),
     location: locationInput.value.trim(),
     doctor: doctorInput.value.trim(),
@@ -224,6 +239,10 @@ closeEditorButton?.addEventListener("click", () => {
 deleteAppointmentButton?.addEventListener("click", async () => {
   const id = appointmentIdInput?.value;
   if (id) await deleteAppointment(id);
+});
+
+sourceHospitalInput?.addEventListener("change", () => {
+  updateSourceHospitalOtherInput({ clearWhenHidden: true });
 });
 
 document.addEventListener("keydown", (event) => {
@@ -426,6 +445,11 @@ function renderAppointments() {
     card.querySelector(".when-line").textContent =
       formatCardDateTime(appointment);
     card.querySelector("h3").textContent = appointment.title;
+    const sourceLine = card.querySelector(".source-line");
+    sourceLine.textContent = appointment.sourceHospital
+      ? `Afkomstig van ${appointment.sourceHospital}`
+      : "";
+    sourceLine.hidden = !appointment.sourceHospital;
     card.querySelector(".place-line").textContent =
       [appointment.hospital, appointment.location].filter(Boolean).join(" · ") ||
       "Locatie nog niet ingevuld";
@@ -571,6 +595,7 @@ function renderReaderPage() {
   if (readerDate) readerDate.textContent = formatDateTime(next);
   if (readerDetails) {
     readerDetails.replaceChildren(
+      createOverviewDetail("Afkomstig van", next.sourceHospital || "Niet ingevuld"),
       createOverviewDetail("Waar", [next.hospital, next.location].filter(Boolean).join(", ") || "Niet ingevuld"),
       createOverviewDetail("Behandelaar", next.doctor || "Niet ingevuld"),
       createOverviewDetail("Aanwezigheid", createCompanionsSummary(next)),
@@ -611,6 +636,7 @@ function renderReaderAppointmentList() {
 
     const details = document.createElement("dl");
     details.replaceChildren(
+      createOverviewDetail("Afkomstig van", appointment.sourceHospital || "Niet ingevuld"),
       createOverviewDetail("Waar", appointment.hospital || "Niet ingevuld"),
       createOverviewDetail("Route", appointment.location || "Niet ingevuld"),
       createOverviewDetail("Behandelaar", appointment.doctor || "Niet ingevuld"),
@@ -917,6 +943,7 @@ function editAppointment(id) {
   dateInput.value = appointment.date;
   timeInput.value = appointment.time;
   reasonInput.value = appointment.reason;
+  setSourceHospitalValue(appointment.sourceHospital);
   hospitalInput.value = appointment.hospital;
   locationInput.value = appointment.location;
   doctorInput.value = appointment.doctor;
@@ -1023,7 +1050,43 @@ function resetForm() {
   if (appointmentIdInput) appointmentIdInput.value = "";
   if (formTitle) formTitle.textContent = "Nieuwe afspraak";
   if (deleteAppointmentButton) deleteAppointmentButton.hidden = true;
+  updateSourceHospitalOtherInput({ clearWhenHidden: true });
   renderAttendanceEditor();
+}
+
+function getSourceHospitalValue() {
+  if (!sourceHospitalInput) return "";
+
+  if (sourceHospitalInput.value === otherSourceHospitalValue) {
+    return sourceHospitalOtherInput?.value.trim() || "";
+  }
+
+  return sourceHospitalInput.value.trim();
+}
+
+function setSourceHospitalValue(value) {
+  if (!sourceHospitalInput) return;
+
+  const sourceHospital = String(value || "");
+  if (!sourceHospital || sourceHospitalPresetValues.has(sourceHospital)) {
+    sourceHospitalInput.value = sourceHospital;
+    if (sourceHospitalOtherInput) sourceHospitalOtherInput.value = "";
+  } else {
+    sourceHospitalInput.value = otherSourceHospitalValue;
+    if (sourceHospitalOtherInput) sourceHospitalOtherInput.value = sourceHospital;
+  }
+
+  updateSourceHospitalOtherInput();
+}
+
+function updateSourceHospitalOtherInput({ clearWhenHidden = false } = {}) {
+  const isOther = sourceHospitalInput?.value === otherSourceHospitalValue;
+
+  if (sourceHospitalOtherField) sourceHospitalOtherField.hidden = !isOther;
+  if (!sourceHospitalOtherInput) return;
+
+  sourceHospitalOtherInput.required = isOther;
+  if (!isOther && clearWhenHidden) sourceHospitalOtherInput.value = "";
 }
 
 function getActiveAppointment() {
@@ -1086,6 +1149,9 @@ function createAppointmentSpeechText(appointment, opening) {
     locationParts.length > 0
       ? `De locatie is ${locationParts.join(", ")}.`
       : "De locatie is nog niet ingevuld.";
+  const sourceText = appointment.sourceHospital
+    ? `Deze afspraak is afkomstig van ${appointment.sourceHospital}.`
+    : "";
   const doctorText = appointment.doctor
     ? `De behandelaar is ${appointment.doctor}.`
     : "De behandelaar is nog niet ingevuld.";
@@ -1100,6 +1166,7 @@ function createAppointmentSpeechText(appointment, opening) {
     `${opening} ${appointment.title}.`,
     `Dat is op ${formatDateTime(appointment)}.`,
     reasonText,
+    sourceText,
     locationText,
     doctorText,
     attendanceText,
@@ -1333,6 +1400,7 @@ async function saveAppointment(appointment) {
     date: appointment.date,
     time: appointment.time,
     reason: appointment.reason,
+    sourceHospital: appointment.sourceHospital,
     hospital: appointment.hospital,
     location: appointment.location,
     doctor: appointment.doctor,
@@ -1404,6 +1472,7 @@ function normalizeAppointment(appointment) {
     date: String(appointment.date || ""),
     time: String(appointment.time || ""),
     reason: String(appointment.reason || ""),
+    sourceHospital: String(appointment.sourceHospital || ""),
     hospital: String(appointment.hospital || ""),
     location: String(appointment.location || ""),
     doctor: String(appointment.doctor || ""),
